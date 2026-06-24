@@ -1,0 +1,18 @@
+# --- keep your REAL setlist data out of the repo ---------------------
+# The app stores data in the browser (localStorage) and exports JSON.
+# Never commit your real tabs: ignore the usual local-data filenames.
+fiches-data*.json
+songbook-data*.json
+*.local.json
+*.private.*
+/private/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# node (only if you add tooling later)
+node_modules/
+npm-debug.log*

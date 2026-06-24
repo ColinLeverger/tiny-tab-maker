@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tiny Tab Maker</title>
+<meta name="description" content="Tiny static editor: song structure → chords → tabs → printable PDF. Hostable on GitHub Pages.">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">🎸 Tiny Tab Maker <small>structure → PDF</small></span>
+  <div class="spacer"></div>
+
+  <label class="field" title="Text size of chords AND tabs (pt)">Size
+    <input type="number" id="chordPt" min="8" max="22" step="1" value="12">
+  </label>
+  <label class="field" title="Several songs per page (instead of one per page)">
+    <input type="checkbox" id="compactToggle"> Compact
+  </label>
+  <label class="field" title="Grayscale preview (for B&amp;W printing)">
+    <input type="checkbox" id="bwToggle"> B&amp;W
+  </label>
+  <span id="saveStatus" class="savestat" title="Your data stays in this browser, even after closing"></span>
+
+  <div class="menu">
+    <button class="btn primary" id="genBtn">Generate ▾</button>
+    <div class="menu-pop" id="genMenu">
+      <button data-act="pdf-color">⬇︎ PDF colour (.pdf)</button>
+      <button data-act="pdf-bw">⬇︎ PDF B&amp;W (.pdf)</button>
+      <button data-act="print">🖨 Print / Save as PDF (faithful)</button>
+    </div>
+  </div>
+
+  <div class="menu">
+    <button class="btn ghost" id="dataBtn">Data ▾</button>
+    <div class="menu-pop" id="dataMenu">
+      <button data-act="import">📂 Import JSON…</button>
+      <button data-act="export">💾 Export JSON</button>
+      <button data-act="demo">✨ Load demo</button>
+      <button data-act="wipe">🗑 Clear all</button>
+    </div>
+  </div>
+  <input type="file" id="fileInput" accept="application/json,.json" hidden>
+</header>
+
+<div class="layout">
+  <!-- ===== EDITOR ===== -->
+  <aside class="editor">
+    <h2>Editor</h2>
+
+    <div class="song-card" id="metaCard">
+      <div class="sc-head" data-toggle="meta"><span class="num">⚙</span>
+        <span class="ttl">Songbook settings</span><span class="chev">›</span></div>
+      <div class="sc-body">
+        <div class="row"><label>Band name</label><input data-meta="band"></div>
+        <div class="row"><label>Subtitle</label><input data-meta="subtitle"></div>
+        <div class="row"><label>Notation line</label><input data-meta="notation"></div>
+        <div class="row"><label>Last updated</label><input data-meta="updated"></div>
+      </div>
+    </div>
+
+    <div id="editor-list"></div>
+    <button class="btn" id="addSong" style="width:100%;margin-top:.4rem">＋ Add a song</button>
+  </aside>
+
+  <!-- ===== PREVIEW ===== -->
+  <main class="preview-wrap">
+    <div id="preview"></div>
+  </main>
+</div>
+
+<!-- ===== TAB GRID EDITOR ===== -->
+<div class="modal-bg" id="tabModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="tabModalTitle">Tab editor</h3>
+      <button class="btn sm" id="tabClear">↺ Clear</button>
+      <button class="btn sm" id="tabCancel">Cancel</button>
+      <button class="btn sm primary" id="tabSave">Save</button>
+    </div>
+    <div class="modal-body">
+      <div class="tg-toolbar">
+        <button class="btn sm" data-sym="bar">＋ Bar |</button>
+        <button class="btn sm" data-sym="repopen">＋ Repeat |:</button>
+        <button class="btn sm" data-sym="repclose">＋ End repeat :|</button>
+        <button class="btn sm" data-sym="mark">＋ Marker ‡</button>
+        <span class="hint">Click a cell (the “＋” column on the right) to add a note · click a note to change it.</span>
+      </div>
+      <div class="tabgrid" id="tabGrid"></div>
+      <div class="tab-preview">
+        <div class="lbl" style="font-size:.78rem;color:#6b7280;margin-bottom:.2rem">Preview</div>
+        <pre id="tabPreview"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- jsPDF + autotable (CDN, fine for GitHub Pages) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+<script src="js/data.js"></script>
+<script src="js/demo-data.js"></script>
+<script src="js/render.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
