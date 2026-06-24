@@ -1,5 +1,7 @@
 # 🎸 Tiny Tab Maker
 
+https://colinleverger.github.io/tiny-tab-maker/
+
 A tiny **static** web app (no backend) that goes from a song's *structure* →
 chords → tabs → **printable A4 PDF**. It's meant for prepping a band's play
 sheets. Drop it on **GitHub Pages** and it just works.
