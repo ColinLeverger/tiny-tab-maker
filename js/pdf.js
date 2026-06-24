@@ -33,7 +33,7 @@
     var PH = doc.internal.pageSize.getHeight();
     var M = 38, W = PW - 2 * M, BOTTOM = PH - 46;
     var y = M + 4;
-    var HEAD = [43, 52, 64], MUT = [110, 116, 124];
+    var HEAD = [43, 52, 64];
 
     function ensure(need) { if (y + need > BOTTOM) { doc.addPage(); y = M + 4; } }
     function setF(style, size) { doc.setFont("helvetica", style || "normal"); doc.setFontSize(size); }

@@ -1,0 +1,57 @@
+==============================================
+DEMO BAND — GUITAR PREP (100% FICTIONAL SAMPLE)
+==============================================
+Dernière mise à jour : 2026-06-24
+Notation : chords EN / flats only (Ab Bb Db Eb Gb) — fictional data
+==============================================
+
+----------------------------------------------
+01 — COSMIC WAKE-UP (Demo Vol. 1)
+----------------------------------------------
+Tonalité   : Em
+Tempo      : ~120 BPM
+Mesure     : 4/4
+Structure  : Intro (riff) → Verse → Chorus → Solo → Ending
+Chords
+  Intro    : Em
+  Verse    : Em G D C
+  Chorus   : C G D Em
+  Solo     : follows the verse (Em G D C)
+  Ending   : Em G Em
+Riffs      : [TAB PLACEHOLDER]
+Breaks     : N/A
+Notes      : Light delay on the intro (fictional)
+
+----------------------------------------------
+02 — SWEET POTATO (Demo Vol. 1)
+----------------------------------------------
+Tonalité   : Am
+Tempo      : ~95 BPM
+Mesure     : 4/4
+Feel       : funk
+Structure  : Intro → Verse → Chorus → Break → Chorus → Outro
+Chords
+  Intro    : Am (funk, palm mute)
+  Verse    : Am Dm Am Dm
+  Chorus   : F G Am
+  Outro    : Am F G Am
+Riffs      : [TAB PLACEHOLDER]
+Breaks     : Funk break (riff)
+Notes      : Off-beat on the verse (fictional)
+
+----------------------------------------------
+03 — MORNING FOG (Live Sessions)
+----------------------------------------------
+Tonalité   : Dm
+Tempo      : ~80 BPM
+Mesure     : 6/8
+Structure  : Intro → Verse → Bridge → Chorus → End
+Chords
+  Intro    : (no guitar)
+  Verse    : Dm Bb F C
+  Bridge   : Gm A Dm
+  Chorus   : Bb F C Dm
+  End      : Dm
+Riffs      : [TAB PLACEHOLDER]
+Breaks     : N/A
+Notes      : Guitar in on the verse only (fictional)

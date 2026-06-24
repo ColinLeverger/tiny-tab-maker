@@ -16,3 +16,8 @@ Thumbs.db
 # node (only if you add tooling later)
 node_modules/
 npm-debug.log*
+
+# legacy-python build artifacts
+legacy-python/demo_sheets*.pdf
+__pycache__/
+*.pyc
