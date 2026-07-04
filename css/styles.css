@@ -82,6 +82,11 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .rv-fields .rv-wide{grid-column:1/-1}
 .rv-actions{border-top:1px dashed var(--line);padding-top:.6rem}
 .rv-actions #rvBack{min-width:52px}
+/* spotlight on the sheet: the mark currently under review */
+.rv-target{outline:3px solid var(--accent);outline-offset:3px;border-radius:8px;
+  animation:rvpulse 1.2s ease-in-out infinite}
+@keyframes rvpulse{0%,100%{outline-color:var(--accent)}50%{outline-color:rgba(47,95,179,.2)}}
+@media print{.rv-target{outline:none;animation:none}}
 .song-card{border:1px solid var(--line);border-radius:9px;margin-bottom:.7rem;background:#fff;overflow:hidden}
 .song-card>.sc-head{display:flex;align-items:center;gap:.4rem;padding:.45rem .55rem;
   background:#f6f8fa;border-bottom:1px solid var(--line);cursor:grab}
@@ -355,6 +360,9 @@ body.stage .sheet.stage-current{display:block;position:absolute;top:0;left:0;
 body.stage.stage-portrait .preview-wrap{overflow-y:auto;-webkit-overflow-scrolling:touch}
 body.stage.stage-portrait #preview{height:auto;min-height:100%}
 body.stage.stage-portrait .sheet.stage-current{position:relative;padding:6mm 4mm}
+/* narrow reflow: let the header and pills wrap instead of forcing width */
+body.stage.stage-portrait .sheet.stage-current .songsheet-head{flex-wrap:wrap}
+body.stage.stage-portrait .sheet.stage-current .fh-meta{margin-left:0}
 
 /* floating navigation pill */
 body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;

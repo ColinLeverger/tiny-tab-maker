@@ -24,6 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Auto-version the service worker: every deploy gets its own cache name,
+      # so nobody ever has to bump VERSION by hand.
+      - name: Stamp SW version with commit SHA
+        run: sed -i 's/^var VERSION = .*/var VERSION = "ttm-${{ github.sha }}";/' sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

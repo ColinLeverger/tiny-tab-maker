@@ -118,6 +118,7 @@
       pv.innerHTML = FG.renderPreview(STATE, opts, pg && pg.songPage);
       updatePageCount(pg);
       if (root.__ttmStageRefresh) root.__ttmStageRefresh();   // keep View mode in sync
+      if (root.__ttmRvRefresh) root.__ttmRvRefresh();         // keep review spotlight in sync
     }, 160);
   }
   function updatePageCount(pg) {
@@ -752,22 +753,41 @@
     document.body.classList.toggle("stage-portrait", portrait);
 
     if (portrait) {
-      // Phones: LONG, not LARGE. Reflow the sheet to the screen width (never
-      // narrower than the widest tab), keep text at its natural size, and let
-      // the page scroll vertically like a real song sheet.
-      el.style.width = "794px";
+      // Phones: LONG, not LARGE — content-driven zoom. Measure the widest REAL
+      // line (widest tab, widest chord row), shrink the sheet to exactly that,
+      // then scale the whole sheet so that line hits the screen edge. Big
+      // readable content, vertical scroll for the rest.
+      el.style.width = "794px";                                // measure baseline
+      var PADX = 32;                                           // 4mm side padding ×2 + border
+      var need = 280;
       var tabW = 0;
       $$("pre.tab", el).forEach(function (p) { tabW = Math.max(tabW, p.scrollWidth); });
-      var minW = Math.max(320, tabW ? tabW + 46 : 320);
-      var Wb = Math.max(minW, aW);
+      if (tabW) need = Math.max(need, tabW + PADX);
+      // chord rows: label cell is 36% of the table, value cell the rest —
+      // the row's required table width is whichever constraint bites harder
+      var meas = document.createElement("span");
+      meas.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0";
+      document.body.appendChild(meas);
+      var tw = function (node) {
+        var cs = root.getComputedStyle(node);
+        meas.style.font = cs.font || (cs.fontSize + " " + cs.fontFamily);
+        meas.textContent = node.textContent || "";
+        return meas.offsetWidth;
+      };
+      $$(".chords tr", el).forEach(function (tr) {
+        var cl = tr.querySelector(".cl"), cv = tr.querySelector(".cv");
+        if (!cl || !cv) return;
+        var w = Math.max((tw(cl) + 20) / 0.36, (tw(cv) + 20) / 0.64);
+        need = Math.max(need, w + PADX);
+      });
+      meas.parentNode && meas.parentNode.removeChild(meas);
+      var Wb = Math.max(280, Math.min(794, Math.ceil(need)));
       el.style.width = Wb + "px";
-      if (Wb > aW) {                       // tabs wider than the screen: scale down
-        var k0 = aW / Wb;
-        el.style.transformOrigin = "top left";
-        el.style.transform = "scale(" + k0.toFixed(4) + ")";
-        // transform doesn't shrink layout height -> fix the scroll extent
-        el.style.marginBottom = -(el.offsetHeight * (1 - k0)) + "px";
-      }
+      var k = Math.min(aW / Wb, 2.4);                          // zoom in (or down if a tab is huge)
+      el.style.transformOrigin = "top left";
+      el.style.transform = "scale(" + k.toFixed(4) + ")";
+      // transform doesn't change layout height -> fix the scroll extent
+      el.style.marginBottom = ((k - 1) * el.offsetHeight).toFixed(1) + "px";
       var wrap = $(".preview-wrap"); if (wrap) wrap.scrollTop = 0;
       return;
     }
@@ -1386,6 +1406,7 @@
   function openReview() { RV = { list: buildReviewList(), k: 0, snapped: false }; drawReview(); $("#reviewModal").classList.add("open"); }
   function closeReview() {
     stopPlayback();
+    rvClearHighlight();
     $("#reviewModal").classList.remove("open");
     RV = null;
     renderAll();                                  // reflect all triage edits in the editor
@@ -1419,6 +1440,7 @@
     var noteHtml = lines.map(function (ln, k) {
       return '<div class="rh-note-row"><span class="rh-n">' + noteNum(k) + "</span>" +
         "<span>" + esc(ln) + "</span>" +
+        '<button class="btn sm" data-rvcp="' + k + '" title="Copy this note — ready to paste into a field">⧉</button>' +
         '<button class="btn sm danger" data-rvln="' + k + '" title="Delete this note line">✕</button></div>';
     }).join("") || '<div class="rh-note-row"><span></span><span style="color:var(--muted)">(mark only, no text)</span></div>';
     // chord row whose label matches the section, if any -> editable in place
@@ -1459,7 +1481,32 @@
       var card = $('[data-card="' + si + '"]');
       if (card && card.scrollIntoView) card.scrollIntoView({ block: "start", behavior: "smooth" });
     });
+    rvHighlight(si, sec);
   }
+  // spotlight the reviewed mark on the sheet behind the modal: scroll the
+  // preview to that song and pulse the section pill (or the song header)
+  function rvClearHighlight() {
+    $$(".rv-target").forEach(function (n) { n.classList.remove("rv-target"); });
+  }
+  function rvHighlight(si, sec) {
+    rvClearHighlight();
+    var sheet = $$("#preview .sheet.songsheet")[si]; if (!sheet) return;
+    var tgt = null;
+    if (sec !== "__song") {
+      $$(".pill[data-sec]", sheet).forEach(function (p) {
+        if (!tgt && p.getAttribute("data-sec") === sec) tgt = p;
+      });
+    }
+    if (!tgt) tgt = sheet.querySelector(".songsheet-head") || sheet;
+    tgt.classList.add("rv-target");
+    if (tgt.scrollIntoView) tgt.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+  // preview re-renders (debounced) after in-queue edits -> re-apply the spotlight
+  root.__ttmRvRefresh = function () {
+    if (!RV) return;
+    var cur = rvEntry();
+    if (cur) rvHighlight(cur.it.si, cur.it.sec);
+  };
   function rvSnap() { if (RV && !RV.snapped) { pushHistory(); RV.snapped = true; } }
   $("#rvBody").addEventListener("input", function (ev) {
     var t = ev.target, cur = rvEntry(); if (!cur) return;
@@ -1473,6 +1520,20 @@
   $("#rvBody").addEventListener("click", function (ev) {
     var pb = ev.target.closest("[data-mid]");
     if (pb) { playMemo(pb.getAttribute("data-mid"), pb); return; }
+    var cp = ev.target.closest("[data-rvcp]");
+    if (cp) {                                     // copy note line, ready to paste
+      var cur0 = rvEntry(); if (!cur0) return;
+      var txt = ((cur0.e.note || "").split("\n").filter(Boolean))[+cp.getAttribute("data-rvcp")] || "";
+      var ok = function () {
+        cp.textContent = "✓";
+        setTimeout(function () { cp.textContent = "⧉"; }, 900);
+        setStatus("✓ Note copied — paste it where it belongs");
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(ok, function () { prompt("Copy:", txt); });
+      } else prompt("Copy:", txt);
+      return;
+    }
     var ln = ev.target.closest("[data-rvln]");
     if (!ln) return;
     var cur = rvEntry(); if (!cur) return;

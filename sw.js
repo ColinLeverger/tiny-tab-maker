@@ -6,7 +6,9 @@
  * wifi can be as bad as it wants.
  * Bump VERSION when shipping changes, old caches are swept on activate.
  * ===================================================================== */
-var VERSION = "ttm-v4";
+// NOTE: the deploy workflow stamps this line with the commit SHA on every
+// push — no manual bumping. This value only matters for local/branch serving.
+var VERSION = "ttm-dev";
 var SHELL = [
   "./",
   "index.html",
