@@ -215,7 +215,10 @@
         '<div class="row"><label>Title</label><input data-song="' + i + '" data-field="title" value="' + esc(s.title) + '"></div>' +
         '<div class="grid2">' +
           '<div class="row"><label>Key</label><input data-song="' + i + '" data-field="key" value="' + esc(s.key) + '"></div>' +
-          '<div class="row"><label>Tempo</label><input data-song="' + i + '" data-field="tempo" value="' + esc(s.tempo) + '"></div>' +
+          '<div class="row"><label>Tempo</label><div class="tempo-wrap">' +
+            '<input data-song="' + i + '" data-field="tempo" value="' + esc(s.tempo) + '">' +
+            '<button class="btn sm" data-act="tapTempo" data-song="' + i + '" title="Tap the beat on this button — after 10 s (or a pause) the tempo lands in the field as ~BPM">🥁</button>' +
+          "</div></div>" +
           '<div class="row"><label>Meter</label><input data-song="' + i + '" data-field="meter" value="' + esc(s.meter) + '"></div>' +
           '<div class="row"><label>Feel</label><input data-song="' + i + '" data-field="feel" value="' + esc(s.feel) + '"></div>' +
         "</div>" +
@@ -355,7 +358,54 @@
       if (s.rehearsal && !Object.keys(s.rehearsal).length) delete s.rehearsal;
       renderAll(); return;
     }
+    if (act === "tapTempo") { e.stopPropagation(); tapTempoClick(si); return; }
   });
+
+  /* =====================================================================
+   *  INLINE TAP TEMPO — tap the 🥁 button next to a song's Tempo field.
+   *  Session = 10 s from the first tap (or 2.5 s of silence, whichever
+   *  first), then "~<bpm> BPM" is written into the field. No page hop.
+   * ===================================================================== */
+  var TAPT = null; // { si, taps:[], t10, tIdle }
+  function tapTempoBtn(si) { return $('button[data-act="tapTempo"][data-song="' + si + '"]'); }
+  function tapTempoFinish() {
+    if (!TAPT) return;
+    clearTimeout(TAPT.t10); clearTimeout(TAPT.tIdle);
+    var si = TAPT.si, taps = TAPT.taps;
+    TAPT = null;
+    var btn = tapTempoBtn(si); if (btn) btn.textContent = "🥁";
+    if (taps.length < 3) { setStatus("⚠︎ tap at least 3 times", true); return; }
+    var gaps = [];
+    for (var i = 1; i < taps.length; i++) gaps.push(taps[i] - taps[i - 1]);
+    var avg = gaps.reduce(function (a, b) { return a + b; }, 0) / gaps.length;
+    var bpm = Math.round(60000 / avg);
+    if (bpm < 20 || bpm > 300) { setStatus("⚠︎ tempo out of range (" + bpm + ")", true); return; }
+    var s = STATE.songs[si]; if (!s) return;
+    pushHistory();
+    s.tempo = "~" + bpm + " BPM";
+    var inp = $('input[data-song="' + si + '"][data-field="tempo"]');
+    if (inp) inp.value = s.tempo;      // update in place (keep the card as-is)
+    touchUpdated(); updatePreview(); persist();
+    setStatus("✓ Tempo: ~" + bpm + " BPM (" + taps.length + " taps)");
+  }
+  function tapTempoClick(si) {
+    var now = performance.now();
+    if (TAPT && TAPT.si !== si) tapTempoFinish();      // switched songs mid-session
+    if (!TAPT) {
+      TAPT = { si: si, taps: [], t10: setTimeout(tapTempoFinish, 10000), tIdle: null };
+    }
+    TAPT.taps.push(now);
+    clearTimeout(TAPT.tIdle);
+    TAPT.tIdle = setTimeout(tapTempoFinish, 2500);
+    var btn = tapTempoBtn(si);
+    if (btn) {
+      if (TAPT.taps.length > 1) {
+        var g = [];
+        for (var i = 1; i < TAPT.taps.length; i++) g.push(TAPT.taps[i] - TAPT.taps[i - 1]);
+        btn.textContent = "…" + Math.round(60000 / (g.reduce(function (a, b) { return a + b; }, 0) / g.length));
+      } else btn.textContent = "…tap";
+    }
+  }
 
   $("#addSong").addEventListener("click", function () {
     pushHistory();

@@ -79,6 +79,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .row{margin-bottom:.5rem}
 .row>label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:.15rem}
 .row input,.row textarea,.row select{width:100%;padding:.4rem .5rem;border:1px solid var(--line2);border-radius:7px;background:#fff}
+.tempo-wrap{display:flex;gap:.25rem;align-items:stretch}
+.tempo-wrap input{flex:1;min-width:0}
+.tempo-wrap .btn{min-width:52px;font-variant-numeric:tabular-nums}
 .row textarea{resize:vertical;min-height:2.4rem;line-height:1.35}
 .sub{margin:.55rem 0 .3rem;font-size:.8rem;font-weight:700;color:var(--head);text-transform:uppercase;letter-spacing:.03em}
 .pair{display:grid;grid-template-columns:15px 32% 1fr auto;gap:.35rem;margin-bottom:.35rem;align-items:center}

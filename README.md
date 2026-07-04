@@ -86,6 +86,9 @@ On top of it:
 - **🥁 Tap** (top bar, or in ☰ preset to the current song's tempo) opens
   `tap.html`: a full-screen tap-tempo pad + Web Audio metronome with accented
   downbeat (2/4 · 3/4 · 4/4 · 6/8), `?bpm=` preset, zero dependencies.
+  There's also an **inline 🥁 next to each song's Tempo field** in the editor:
+  tap the beat on the button itself (live estimate shown) — after 10 s or a
+  2.5 s pause, `~<bpm> BPM` lands straight in the field (min 3 taps).
 - **PWA / offline**: the app ships a manifest + service worker. Visit once
   online, then *Add to Home Screen* — it opens full-screen and works with **no
   network at all** (CDN libs get runtime-cached too). Bump `VERSION` in `sw.js`
