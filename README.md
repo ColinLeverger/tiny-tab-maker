@@ -79,9 +79,17 @@ On top of it:
   (plays nice with Auto-№). The picker at the top switches between the
   **whole book and named setlists** — a setlist is an ordered subset of the
   book (stored by stable song ids, so reordering the book never breaks a set).
-  With a set active, View mode flips through *that* set only; the printable
-  booklet always stays whole-book. ＋ New creates one, − / ＋ move songs in and
-  out, 🗑 deletes the list (songs stay).
+  ＋ New creates one, − / ＋ move songs in and out, 🗑 deletes the list (songs
+  stay).
+- **View scope**: the active set is a *lens* over the book. The topbar
+  switcher (📕 Whole book / 📗 set name — tinted blue when scoped, mirrored in
+  ☰) drives **the preview pane, Print, PDF export and View mode alike**: set
+  songs only, set order, renumbered 01..n, cover page turned into a setlist
+  cover. The Generate menu labels say what they'll produce. The **editor
+  always shows the whole book** (▸03 badge = position in the active set,
+  ∅ = not in it), so no song ever gets "lost" again — scope is a lens, never
+  a knife. Workflow: edit in 📕 → build the set in ☰ → switch to 📗 → reorder,
+  rehearse, print the set PDF → flip back to 📕 for the full booklet.
 - **🖍 Practice digest** (Generate menu): every mark & note in the book on one
   page, red-first per song — the "what to fix at home" list. Printable on
   demand (unlike the per-sheet scribbles, which never print).

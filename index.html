@@ -34,6 +34,7 @@
   <span id="saveStatus" class="savestat" title="Your data stays in this browser, even after closing"></span>
 
   <button class="btn ghost" id="undoBtn" title="Undo last change (Ctrl/Cmd+Z)" disabled>↶ Undo</button>
+  <select id="scopeSel" class="scope-sel" title="View scope — what the preview, Print and PDF show"></select>
   <button class="btn ghost" id="setBtn" title="Setlists — switch, build, reorder">☰ Sets</button>
   <a class="btn ghost" id="tapLink" href="tap.html" title="Tap tempo &amp; metronome">🥁 Tap</a>
   <button class="btn ghost" id="viewBtn" title="Full-screen reading view — hide the editor and flip through songs">📖 View</button>
@@ -66,8 +67,12 @@
   <!-- ===== EDITOR ===== -->
   <aside class="editor">
     <div class="ed-head"><h2>Editor</h2>
+      <label class="allsets" title="Also show the coloured set-position badges of the OTHER gigs (default: only the active view's)">
+        <input type="checkbox" class="switch" id="allSetsToggle"> 🏷 all sets
+      </label>
       <button class="btn sm" id="reviewBtn" title="Walk through every rehearsal note, fix the data, clear the note">🖍 Review notes</button>
     </div>
+    <div class="scope-hint" id="scopeHint" hidden></div>
 
     <div class="song-card" id="metaCard">
       <div class="sc-head" data-toggle="meta"><span class="num">⚙</span>
@@ -187,6 +192,9 @@
     </div>
   </div>
 </div>
+
+<!-- floating return button after a double-tap deep link -->
+<button id="backBtn" class="btn primary back-float" hidden title="Collapse and scroll back to where you were before the double-tap">↩ Back where I was</button>
 
 <!-- ===== BIG TAP-TEMPO PAD (opened by the 🥁 next to a Tempo field) ===== -->
 <div class="tap-pad" id="tapPad">

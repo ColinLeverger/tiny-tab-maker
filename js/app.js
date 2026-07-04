@@ -17,7 +17,7 @@
 
   var RESTORED = false;
   var STATE = load();
-  var UI = { bw: false, compact: false, chordPt: 18, openSong: null };
+  var UI = { bw: false, compact: false, chordPt: 18, openSong: null, allSets: false };
 
   // view prefs (compact / B&W / size) persist too, so the preview is correct at
   // page load without having to re-toggle anything.
@@ -27,11 +27,12 @@
       var u = JSON.parse(localStorage.getItem(UI_KEY) || "null") || {};
       if (typeof u.bw === "boolean") UI.bw = u.bw;
       if (typeof u.compact === "boolean") UI.compact = u.compact;
+      if (typeof u.allSets === "boolean") UI.allSets = u.allSets;
       if (u.chordPt) UI.chordPt = +u.chordPt || UI.chordPt;
     } catch (e) {}
   })();
   function persistUI() {
-    try { localStorage.setItem(UI_KEY, JSON.stringify({ bw: UI.bw, compact: UI.compact, chordPt: UI.chordPt })); } catch (e) {}
+    try { localStorage.setItem(UI_KEY, JSON.stringify({ bw: UI.bw, compact: UI.compact, chordPt: UI.chordPt, allSets: UI.allSets })); } catch (e) {}
   }
 
   // ---- auto "last updated": stamp today on the first change of the session ----
@@ -104,6 +105,19 @@
     if (!warn) statusT = setTimeout(function () { el.classList.remove("show"); }, 1600);
   }
 
+  // A tab wider than its sheet used to hide behind a horizontal scrollbar.
+  // Instead: shrink THAT tab's font just enough to show the whole thing
+  // (mono scales linearly, so one ratio nails it). PDF/jsPDF unaffected.
+  function fitTabs(scopeEl) {
+    $$("pre.tab", scopeEl || $("#preview")).forEach(function (p) {
+      p.style.fontSize = "";                       // back to the CSS size first
+      var cw = p.clientWidth, sw = p.scrollWidth;
+      if (!cw || sw <= cw + 1) return;
+      var cur = parseFloat(root.getComputedStyle(p).fontSize) || 12;
+      p.style.fontSize = Math.max(6, cur * (cw / sw) * 0.98) + "px";
+    });
+  }
+
   var prevT;
   function updatePreview() {
     clearTimeout(prevT);
@@ -112,19 +126,21 @@
       pv.className = UI.compact ? "compact" : "";
       pv.style.setProperty("--fs", UI.chordPt + "pt");
       var opts = { bw: UI.bw, chordPt: UI.chordPt, compact: UI.compact };
+      var VS = viewState();                                   // scoped by active set
       // mirror the real PDF pagination (page count + compact grouping)
-      var pg = (FG.paginate && STATE.songs.length && STATE.songs.length <= 60)
-        ? FG.paginate(STATE, opts) : null;
-      pv.innerHTML = FG.renderPreview(STATE, opts, pg && pg.songPage);
-      updatePageCount(pg);
+      var pg = (FG.paginate && VS.songs.length && VS.songs.length <= 60)
+        ? FG.paginate(VS, opts) : null;
+      pv.innerHTML = FG.renderPreview(VS, opts, pg && pg.songPage);
+      updatePageCount(pg, VS.songs.length);
+      if (!document.body.classList.contains("stage")) fitTabs();  // full ASCII, no h-scroll
       if (root.__ttmStageRefresh) root.__ttmStageRefresh();   // keep View mode in sync
       if (root.__ttmRvRefresh) root.__ttmRvRefresh();         // keep review spotlight in sync
     }, 160);
   }
-  function updatePageCount(pg) {
+  function updatePageCount(pg, n) {
     var el = $("#pageCount"); if (!el) return;
     if (pg && pg.pages) el.textContent = "PDF: " + pg.pages + (pg.pages > 1 ? " pages" : " page");
-    else if (STATE.songs.length > 60) el.textContent = "PDF: many pages";
+    else if (n > 60) el.textContent = "PDF: many pages";
     else el.textContent = "";
   }
 
@@ -199,10 +215,22 @@
         }).join("")
       : "";
 
-    return '<div class="song-card' + (open ? " open" : "") + '" data-card="' + i + '">' +
+    // set badges, each in its gig's colour. Default: only the ACTIVE view's
+    // badge; the 🏷 "all sets" flip shows every gig's pastille.
+    var setBadge = "";
+    (STATE.setlists || []).forEach(function (sl, k) {
+      if (STATE.activeSet !== k && !UI.allSets) return;
+      var pos = sl.songs.indexOf(s.id);
+      if (pos >= 0) setBadge += '<span class="inset-b" style="background:' + setColor(k) +
+        '" title="№' + (pos + 1) + ' in “' + esc(sl.name) + '”">▸' + String(pos + 1).padStart(2, "0") + "</span>";
+    });
+    // scoped + not in the active set -> greyed title in the left pane
+    var outScope = activeSetlist() && bookToView(i) < 0;
+
+    return '<div class="song-card' + (open ? " open" : "") + (outScope ? " out-scope" : "") + '" data-card="' + i + '">' +
       '<div class="sc-head" data-toggle="' + i + '" data-drag="song" data-song="' + i + '" draggable="true" title="Drag the bar to reorder">' +
         '<span class="grip" aria-hidden="true">⠿</span>' +
-        '<span class="num">' + esc(s.num) + rhDot(s.rehearsal) + "</span>" +
+        '<span class="num">' + esc(s.num) + rhDot(s.rehearsal) + "</span>" + setBadge +
         '<span class="ttl">' + esc(s.title || "(untitled)") + "</span>" +
         '<button class="btn sm" data-act="up" data-song="' + i + '" title="Up">▲</button>' +
         '<button class="btn sm" data-act="down" data-song="' + i + '" title="Down">▼</button>' +
@@ -283,7 +311,72 @@
       .filter(function (i) { return i != null; });
   }
 
-  function renderAll() { ensureIds(); applyAutoNumber(); renderEditor(); updatePreview(); persist(); }
+  /* ---- VIEW SCOPE: the active set is a lens over the whole book -------
+   * viewState() = what the preview / print / PDF / stage render: the set's
+   * songs, in set order, renumbered 01..n (shallow copies — data untouched).
+   * No set active -> the full STATE. The editor ALWAYS sees the full book. */
+  function viewState() {
+    var al = activeSetlist();
+    if (!al) return STATE;
+    var by = songIdxById();
+    var songs = al.songs.map(function (id) { return STATE.songs[by[id]]; })
+      .filter(Boolean)
+      .map(function (s, k) {
+        var c = {}; Object.keys(s).forEach(function (kk) { c[kk] = s[kk]; });
+        c.num = String(k + 1).padStart(2, "0");
+        return c;
+      });
+    var meta = {}; Object.keys(STATE.meta || {}).forEach(function (k) { meta[k] = STATE.meta[k]; });
+    meta.subtitle = (meta.subtitle ? meta.subtitle + " · " : "") + "Setlist: " + al.name;
+    return { meta: meta, songs: songs, autoNumber: STATE.autoNumber };
+  }
+  function viewToBook(vi) { return navSongIdx()[vi]; }
+  function bookToView(bi) { return navSongIdx().indexOf(bi); }
+
+  // 6 gig colours, cycled by setlist index (matches the category-ink family)
+  var SET_COLORS = ["#2f5fb3", "#2f8f3f", "#b03a78", "#9a7400", "#6b3fb0", "#1f7a6e"];
+  function setColor(k) { return SET_COLORS[k % SET_COLORS.length]; }
+
+  // topbar scope switcher + editor hint + Generate labels — one glance says
+  // exactly what the preview / Print / PDF currently produce.
+  function renderScopeUI() {
+    var al = activeSetlist();
+    var sel = $("#scopeSel");
+    if (sel) {
+      sel.innerHTML = '<option value="">📕 Whole book (' + STATE.songs.length + ')</option>' +
+        (STATE.setlists || []).map(function (sl, k) {
+          return '<option value="' + k + '"' + (STATE.activeSet === k ? " selected" : "") + ">📗 " +
+            esc(sl.name) + " (" + sl.songs.length + ")</option>";
+        }).join("");
+      sel.classList.toggle("scoped", !!al);
+      sel.style.background = al ? setColor(STATE.activeSet) : "";
+      sel.style.borderColor = al ? setColor(STATE.activeSet) : "";
+    }
+    var hint = $("#scopeHint");
+    if (hint) {
+      hint.style.background = al ? setColor(STATE.activeSet) : "";
+      if (al) {
+        var hidden = STATE.songs.length - al.songs.length;
+        hint.hidden = false;
+        hint.textContent = "👁 Preview / Print / PDF = “" + al.name + "” (" + al.songs.length +
+          " songs" + (hidden > 0 ? " — " + hidden + " not shown on the right" : "") + ")";
+      } else hint.hidden = true;
+    }
+    var sfx = al ? " — " + al.name : "";
+    var mc = $('#genMenu [data-act="pdf-color"]'); if (mc) mc.textContent = "⬇︎ PDF colour (.pdf)" + sfx;
+    var mb = $('#genMenu [data-act="pdf-bw"]'); if (mb) mb.textContent = "⬇︎ PDF B&W (.pdf)" + sfx;
+    var mp = $('#genMenu [data-act="print"]'); if (mp) mp.textContent = "🖨 Print / Save as PDF (faithful)" + sfx;
+  }
+  var scopeSel = $("#scopeSel");
+  if (scopeSel) scopeSel.addEventListener("change", function () {
+    pushHistory();
+    STATE.activeSet = this.value === "" ? null : +this.value;
+    stageIdx = 0;
+    renderAll();
+    if ($("#setModal").classList.contains("open")) drawSetlist();
+  });
+
+  function renderAll() { ensureIds(); applyAutoNumber(); renderScopeUI(); renderEditor(); updatePreview(); persist(); }
 
   /* ---------------- editor events ---------------- */
   // snapshot the state when a field gains focus, so a whole typing burst in that
@@ -715,6 +808,10 @@
    *  TOPBAR: generate, data, options
    * ===================================================================== */
   $("#chordPt").addEventListener("input", function () { UI.chordPt = +this.value || 12; persistUI(); updatePreview(); });
+  var allSetsT = $("#allSetsToggle");
+  if (allSetsT) allSetsT.addEventListener("change", function () {
+    UI.allSets = this.checked; persistUI(); renderEditor();
+  });
   $("#bwToggle").addEventListener("change", function () { UI.bw = this.checked; persistUI(); updatePreview(); });
   $("#compactToggle").addEventListener("change", function () { UI.compact = this.checked; persistUI(); updatePreview(); });
   $("#autoNumToggle").addEventListener("change", function () {
@@ -764,8 +861,9 @@
 
   $("#genMenu").addEventListener("click", function (e) {
     var a = e.target.getAttribute("data-act"); if (!a) return;
-    if (a === "pdf-color") FG.generatePdf(STATE, { bw: false, chordPt: UI.chordPt, compact: UI.compact });
-    else if (a === "pdf-bw") FG.generatePdf(STATE, { bw: true, chordPt: UI.chordPt, compact: UI.compact });
+    // print & PDF export exactly what the scope shows (whole book or the set)
+    if (a === "pdf-color") FG.generatePdf(viewState(), { bw: false, chordPt: UI.chordPt, compact: UI.compact });
+    else if (a === "pdf-bw") FG.generatePdf(viewState(), { bw: true, chordPt: UI.chordPt, compact: UI.compact });
     else if (a === "print") { window.print(); }
     else if (a === "digest") { openDigest(); }
   });
@@ -809,16 +907,9 @@
   /* =====================================================================
    *  STAGE / READING VIEW — hide editor, full-screen sheets, song nav
    * ===================================================================== */
-  // stage navigation order: cover + songsheets — filtered/reordered by the
-  // active setlist. The preview/PDF (the printable booklet) stays whole-book.
-  function stageSheets() {
-    var all = $$("#preview .sheet");
-    var al = activeSetlist();
-    if (!al) return all;
-    var songs = $$("#preview .sheet.songsheet");
-    var rest = all.filter(function (s) { return !s.classList.contains("songsheet"); });
-    return rest.concat(navSongIdx().map(function (i) { return songs[i]; }).filter(Boolean));
-  }
+  // The preview itself is scoped by the active set now (viewState), so the
+  // stage simply walks the rendered sheets.
+  function stageSheets() { return $$("#preview .sheet"); }
   var stageIdx = 0;
   function updateStageLabel() {
     var el = $("#stageLabel"); if (!el) return;
@@ -871,6 +962,7 @@
       meas.parentNode && meas.parentNode.removeChild(meas);
       var Wb = Math.max(280, Math.min(794, Math.ceil(need)));
       el.style.width = Wb + "px";
+      fitTabs(el);                                             // whole tab always visible
       var k = Math.min(aW / Wb, 2.4);                          // zoom in (or down if a tab is huge)
       el.style.transformOrigin = "top left";
       el.style.transform = "scale(" + k.toFixed(4) + ")";
@@ -882,6 +974,7 @@
 
     // Landscape / desktop: biggest scale that fits the WHOLE page on one screen.
     el.style.width = "794px";
+    fitTabs(el);                                               // whole tab always visible
     var Wn = el.offsetWidth, Hn = el.offsetHeight;
     if (!Wn || !Hn) return;
     var k = Math.min(aW / Wn, aH / Hn);
@@ -893,8 +986,6 @@
   function renderStageCurrent() {
     var sh = stageSheets(); if (!sh.length) return false;
     stageIdx = Math.max(0, Math.min(sh.length - 1, stageIdx));
-    // clear ALL sheets (a set switch may leave a now-excluded sheet current)
-    $$("#preview .sheet").forEach(function (s) { s.classList.remove("stage-current"); });
     sh.forEach(function (s, i) { s.classList.toggle("stage-current", i === stageIdx); });
     updateStageLabel(); fitStageSheet();
     return true;
@@ -924,6 +1015,7 @@
       s.style.transform = ""; s.style.transformOrigin = ""; s.style.width = "";
       s.style.marginBottom = "";
     });
+    updatePreview();     // restore book numbering on the editable preview
   }
   function toggleStage() { document.body.classList.contains("stage") ? exitStage() : enterStage(); }
 
@@ -935,13 +1027,19 @@
   // expose for the preview-refresh hook (re-apply current sheet after a re-render)
   root.__ttmStageRefresh = function () { if (document.body.classList.contains("stage")) renderStageCurrent(); };
 
-  // index of the song shown in stage view (-1 on the cover)
+  // BOOK index of the song shown in stage view (-1 on the cover). The preview
+  // is scoped, so the sheet position must be translated back to the book.
   function stageSongIndex() {
     var cur = stageSheets()[stageIdx];
-    return cur ? $$("#preview .sheet.songsheet").indexOf(cur) : -1;
+    var vi = cur ? $$("#preview .sheet.songsheet").indexOf(cur) : -1;
+    if (vi < 0) return -1;
+    var bi = viewToBook(vi);
+    return bi == null ? -1 : bi;
   }
-  function jumpToSong(i) {
-    var target = $$("#preview .sheet.songsheet")[i];
+  function jumpToSong(bi) {                       // takes a BOOK index
+    var vi = bookToView(bi);
+    if (vi < 0) return;                           // song not in the current scope
+    var target = $$("#preview .sheet.songsheet")[vi];
     var k = stageSheets().indexOf(target);
     if (k >= 0) stageGo(k);
   }
@@ -1091,10 +1189,33 @@
    *  chord row -> that chord input, pills -> structure, header -> title,
    *  Breaks/Notes -> their inputs, a tab -> the tab grid editor.
    * ===================================================================== */
+  // remember where the user WAS before a deep link, for the ↩ button.
+  // Desktop scrolls the two panes; phone (single column) scrolls the window.
+  var DL = null;
+  function dlRemember() {
+    var ed = $(".editor"), pw = $(".preview-wrap");
+    DL = { edScroll: ed ? ed.scrollTop : 0, pvScroll: pw ? pw.scrollTop : 0,
+           winScroll: root.pageYOffset || 0, prevOpen: UI.openSong };
+    $("#backBtn").hidden = false;
+  }
+  $("#backBtn").addEventListener("click", function () {
+    this.hidden = true;
+    if (!DL) return;
+    UI.openSong = DL.prevOpen != null && DL.prevOpen < STATE.songs.length ? DL.prevOpen : null;
+    renderEditor();
+    var ed = $(".editor"), pw = $(".preview-wrap");
+    if (ed) ed.scrollTop = DL.edScroll;
+    if (pw) pw.scrollTop = DL.pvScroll;
+    if (root.scrollTo) root.scrollTo(0, DL.winScroll);
+    DL = null;
+  });
+
   $("#preview").addEventListener("dblclick", function (e) {
     if (document.body.classList.contains("stage")) return;
     var sheet = e.target.closest(".sheet.songsheet"); if (!sheet) return;
-    var si = $$("#preview .sheet.songsheet").indexOf(sheet); if (si < 0) return;
+    var vi = $$("#preview .sheet.songsheet").indexOf(sheet); if (vi < 0) return;
+    var si = viewToBook(vi); if (si == null || si < 0) return;   // scoped -> book
+    dlRemember();
     // tabs open the grid editor directly
     var tabEl = e.target.closest("pre.tab, .tab-head");
     if (tabEl) {
@@ -1366,7 +1487,11 @@
       html = al.songs.map(function (id, k) {
         var i = by[id]; if (i == null) return "";
         inSet[id] = 1;
-        return setRow(STATE.songs[i], i,
+        // set rows carry the SET position; the book number shows after the title
+        var s2 = STATE.songs[i];
+        var shown = { num: String(k + 1).padStart(2, "0"), rehearsal: s2.rehearsal,
+                      title: (s2.title || "(untitled)") + "  ·  book " + s2.num };
+        return setRow(shown, i,
           '<button class="btn sm" data-smv="up" data-k="' + k + '" title="Up">▲</button>' +
           '<button class="btn sm" data-smv="down" data-k="' + k + '" title="Down">▼</button>' +
           '<button class="btn sm danger" data-srem="' + k + '" title="Remove from set">−</button>');
@@ -1443,21 +1568,21 @@
       if (k2 < 0 || k2 >= al.songs.length) return;
       pushHistory();
       var t2 = al.songs[k]; al.songs[k] = al.songs[k2]; al.songs[k2] = t2;
-      persist(); drawSetlist(); updateStageLabel(); renderStageCurrent();
+      renderAll(); drawSetlist();                  // scope drives the preview now
       return;
     }
     var srem = e.target.closest("[data-srem]");    // remove from set
     if (srem && al) {
       pushHistory();
       al.songs.splice(+srem.getAttribute("data-srem"), 1);
-      persist(); drawSetlist(); renderStageCurrent();
+      renderAll(); drawSetlist();
       return;
     }
     var sadd = e.target.closest("[data-sadd]");    // add to set
     if (sadd && al) {
       pushHistory();
       al.songs.push(sadd.getAttribute("data-sadd"));
-      persist(); drawSetlist(); renderStageCurrent();
+      renderAll(); drawSetlist();
       return;
     }
     var row = e.target.closest(".set-row");
@@ -1621,7 +1746,9 @@
   }
   function rvHighlight(si, sec) {
     rvClearHighlight();
-    var sheet = $$("#preview .sheet.songsheet")[si]; if (!sheet) return;
+    var vi = bookToView(si);
+    if (vi < 0) return;                       // song outside the current scope
+    var sheet = $$("#preview .sheet.songsheet")[vi]; if (!sheet) return;
     var tgt = null;
     if (sec !== "__song") {
       $$(".pill[data-sec]", sheet).forEach(function (p) {
@@ -1769,6 +1896,7 @@
   $("#chordPt").value = UI.chordPt;
   $("#compactToggle").checked = UI.compact;
   $("#bwToggle").checked = UI.bw;
+  var ast = $("#allSetsToggle"); if (ast) ast.checked = UI.allSets;
   $("#autoNumToggle").checked = !!STATE.autoNumber;
   updateUndoBtn();
   renderAll();

@@ -120,7 +120,7 @@
     var songMark = (rh.__song && (rh.__song.c || rh.__song.note))
       ? '<span class="rdot ' + (rh.__song.c || "note") + '"></span>' : "";
     var head = '<div class="songsheet-head"><span class="fh-title">' + songMark +
-      esc(s.num) + " — " + esc(s.title).toUpperCase() + "</span>" +
+      '<span class="fh-num">' + esc(s.num) + "</span> — " + esc(s.title).toUpperCase() + "</span>" +
       '<span class="fh-meta">' +
         [s.key, s.tempo, s.meter || s.feel, s.group].filter(Boolean).map(esc).join(" · ") +
       "</span></div>";

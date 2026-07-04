@@ -72,6 +72,27 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .ed-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem}
 .ed-head h2{margin:0;flex:1}
 
+/* view scope: topbar switcher + editor hint + per-card badges */
+.scope-sel{max-width:200px;padding:.35rem .4rem;border-radius:7px;border:1px solid rgba(255,255,255,.35);
+  background:transparent;color:#fff;font-size:.85rem}
+.scope-sel option{color:var(--ink)}
+.scope-sel.scoped{background:var(--accent);border-color:var(--accent-d);font-weight:600}
+.scope-hint{font-size:.78rem;color:#fff;background:var(--accent);border-radius:7px;
+  padding:.35rem .55rem;margin-bottom:.6rem}
+/* tiny flip switch (🏷 all sets) */
+.allsets{display:flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--muted);
+  cursor:pointer;user-select:none;white-space:nowrap}
+.switch{-webkit-appearance:none;appearance:none;position:relative;width:30px;height:18px;
+  background:#cdd2d8;border-radius:999px;cursor:pointer;outline:none;transition:background .15s;margin:0}
+.switch:checked{background:var(--accent)}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;
+  border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.switch:checked::after{left:14px}
+
+.inset-b{font-size:.7rem;font-weight:700;color:#fff;background:var(--accent);
+  border-radius:5px;padding:.08rem .3rem;font-variant-numeric:tabular-nums;margin-right:.15rem}
+.song-card.out-scope .sc-head .ttl,.song-card.out-scope .sc-head .num{color:var(--muted);opacity:.55}
+
 /* review queue */
 .rv-progress{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .rv-song{font-weight:700;color:var(--head);margin:.1rem 0 .45rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
@@ -338,6 +359,13 @@ body.stage .pills .pill{cursor:pointer}
 #tpHit:active{background:rgba(255,255,255,.22)}
 .tp-actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.55rem}
 .tp-actions .btn{min-height:42px}
+
+/* floating "back where I was" after a double-tap deep link */
+.back-float{position:fixed;right:16px;bottom:16px;z-index:45;min-height:44px;
+  padding:.6rem 1rem;border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.back-float[hidden]{display:none}
+body.stage .back-float{display:none}
+@media print{.back-float{display:none !important}}
 
 /* practice digest */
 .dg-song{margin-bottom:.8rem}
