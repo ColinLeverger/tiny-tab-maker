@@ -34,6 +34,7 @@
   <span id="saveStatus" class="savestat" title="Your data stays in this browser, even after closing"></span>
 
   <button class="btn ghost" id="undoBtn" title="Undo last change (Ctrl/Cmd+Z)" disabled>↶ Undo</button>
+  <button class="btn ghost" id="setBtn" title="Setlists — switch, build, reorder">☰ Sets</button>
   <a class="btn ghost" id="tapLink" href="tap.html" title="Tap tempo &amp; metronome">🥁 Tap</a>
   <button class="btn ghost" id="viewBtn" title="Full-screen reading view — hide the editor and flip through songs">📖 View</button>
 
@@ -165,6 +166,16 @@
     </div>
     <div class="set-bar" id="setBar"></div>
     <div id="setList"></div>
+  </div>
+</div>
+
+<!-- ===== BIG TAP-TEMPO PAD (opened by the 🥁 next to a Tempo field) ===== -->
+<div class="tap-pad" id="tapPad">
+  <div class="tp-info"><span id="tpBpm">—</span><span id="tpCount"></span></div>
+  <button id="tpHit">TAP</button>
+  <div class="tp-actions">
+    <button class="btn" id="tpCancel">Cancel</button>
+    <button class="btn primary" id="tpDone">Done</button>
   </div>
 </div>
 

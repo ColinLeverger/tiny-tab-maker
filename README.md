@@ -60,7 +60,9 @@ splits a song across two pages). **Size** sets the chord + tab text size.
 
 ## Rehearsal mode (phone / tablet)
 
-The **📖 View** button gives a full-screen, one-song-per-screen reading view.
+The **📖 View** button gives a full-screen, one-song-per-screen reading view —
+on portrait phones the sheet reflows to screen width and scrolls vertically
+(long, not large); on landscape/desktop it scales to fit one screen.
 On top of it:
 
 - **Tap a section pill** (or the **🖍** button for the whole song) → a bottom
@@ -86,9 +88,12 @@ On top of it:
 - **🥁 Tap** (top bar, or in ☰ preset to the current song's tempo) opens
   `tap.html`: a full-screen tap-tempo pad + Web Audio metronome with accented
   downbeat (2/4 · 3/4 · 4/4 · 6/8), `?bpm=` preset, zero dependencies.
-  There's also an **inline 🥁 next to each song's Tempo field** in the editor:
-  tap the beat on the button itself (live estimate shown) — after 10 s or a
-  2.5 s pause, `~<bpm> BPM` lands straight in the field (min 3 taps).
+  There's also a **🥁 next to each song's Tempo field** in the editor: it opens
+  a big fixed tap pad (thumb-sized) — tap the beat, then *Done*, 10 s cap or a
+  2.5 s pause writes `~<bpm> BPM` into the field (min 3 taps); *Cancel*,
+  scrolling or focusing another field dismisses it.
+  Setlists are reachable from the editor too via **☰ Sets** in the top bar
+  (tapping a song there opens its card instead of jumping stage view).
 - **🎤 Voice memos** (in the rehearsal sheet): record up to 5 min per take,
   attached to the current section chip; ▶ playback rows, 🎤 badges on chips.
   Stored **on-device in IndexedDB** — never in localStorage, the share URL or

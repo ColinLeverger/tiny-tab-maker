@@ -362,23 +362,30 @@
   });
 
   /* =====================================================================
-   *  INLINE TAP TEMPO — tap the 🥁 button next to a song's Tempo field.
-   *  Session = 10 s from the first tap (or 2.5 s of silence, whichever
-   *  first), then "~<bpm> BPM" is written into the field. No page hop.
+   *  TAP TEMPO PAD — the 🥁 next to a Tempo field opens a BIG fixed pad
+   *  (a tiny editor button is no tap target on a phone). Tap the pad to
+   *  the beat; Done / 10 s cap / 2.5 s silence writes "~<bpm> BPM" into
+   *  the field; Cancel / scrolling / focusing elsewhere dismisses it.
    * ===================================================================== */
-  var TAPT = null; // { si, taps:[], t10, tIdle }
-  function tapTempoBtn(si) { return $('button[data-act="tapTempo"][data-song="' + si + '"]'); }
-  function tapTempoFinish() {
+  var TAPT = null; // { si, taps:[], t10, tIdle, opened }
+  function tapBpm(taps) {
+    if (taps.length < 2) return null;
+    var g = [];
+    for (var i = 1; i < taps.length; i++) g.push(taps[i] - taps[i - 1]);
+    return 60000 / (g.reduce(function (a, b) { return a + b; }, 0) / g.length);
+  }
+  function tapPadHide() {
     if (!TAPT) return;
     clearTimeout(TAPT.t10); clearTimeout(TAPT.tIdle);
-    var si = TAPT.si, taps = TAPT.taps;
     TAPT = null;
-    var btn = tapTempoBtn(si); if (btn) btn.textContent = "🥁";
+    $("#tapPad").classList.remove("open");
+  }
+  function tapTempoFinish() {
+    if (!TAPT) return;
+    var si = TAPT.si, taps = TAPT.taps;
+    tapPadHide();
     if (taps.length < 3) { setStatus("⚠︎ tap at least 3 times", true); return; }
-    var gaps = [];
-    for (var i = 1; i < taps.length; i++) gaps.push(taps[i] - taps[i - 1]);
-    var avg = gaps.reduce(function (a, b) { return a + b; }, 0) / gaps.length;
-    var bpm = Math.round(60000 / avg);
+    var bpm = Math.round(tapBpm(taps));
     if (bpm < 20 || bpm > 300) { setStatus("⚠︎ tempo out of range (" + bpm + ")", true); return; }
     var s = STATE.songs[si]; if (!s) return;
     pushHistory();
@@ -388,24 +395,36 @@
     touchUpdated(); updatePreview(); persist();
     setStatus("✓ Tempo: ~" + bpm + " BPM (" + taps.length + " taps)");
   }
-  function tapTempoClick(si) {
-    var now = performance.now();
-    if (TAPT && TAPT.si !== si) tapTempoFinish();      // switched songs mid-session
+  function tapTempoClick(si) {          // the 🥁 button: open (or re-target) the pad
+    if (TAPT && TAPT.si !== si) tapTempoFinish();
     if (!TAPT) {
-      TAPT = { si: si, taps: [], t10: setTimeout(tapTempoFinish, 10000), tIdle: null };
-    }
-    TAPT.taps.push(now);
-    clearTimeout(TAPT.tIdle);
-    TAPT.tIdle = setTimeout(tapTempoFinish, 2500);
-    var btn = tapTempoBtn(si);
-    if (btn) {
-      if (TAPT.taps.length > 1) {
-        var g = [];
-        for (var i = 1; i < TAPT.taps.length; i++) g.push(TAPT.taps[i] - TAPT.taps[i - 1]);
-        btn.textContent = "…" + Math.round(60000 / (g.reduce(function (a, b) { return a + b; }, 0) / g.length));
-      } else btn.textContent = "…tap";
+      TAPT = { si: si, taps: [], t10: null, tIdle: null, opened: Date.now() };
+      var s = STATE.songs[si];
+      $("#tpBpm").textContent = "—";
+      $("#tpCount").textContent = s && s.title ? s.title : "";
+      $("#tapPad").classList.add("open");
     }
   }
+  $("#tpHit").addEventListener("click", function () {
+    if (!TAPT) return;
+    if (!TAPT.taps.length) TAPT.t10 = setTimeout(tapTempoFinish, 10000);
+    TAPT.taps.push(performance.now());
+    clearTimeout(TAPT.tIdle);
+    TAPT.tIdle = setTimeout(tapTempoFinish, 2500);
+    var b = tapBpm(TAPT.taps);
+    $("#tpBpm").textContent = b ? String(Math.round(b)) : "…";
+    $("#tpCount").textContent = TAPT.taps.length + " tap" + (TAPT.taps.length > 1 ? "s" : "");
+  });
+  $("#tpDone").addEventListener("click", tapTempoFinish);
+  $("#tpCancel").addEventListener("click", tapPadHide);
+  // scroll or focus elsewhere = the user moved on -> shrink the pad away
+  function tapPadDismiss(e) {
+    if (!TAPT || Date.now() - TAPT.opened < 350) return;   // ignore the opening click
+    if (e.target && e.target.closest && e.target.closest("#tapPad")) return;
+    if (TAPT.taps.length >= 3) tapTempoFinish(); else tapPadHide();
+  }
+  document.addEventListener("scroll", tapPadDismiss, true);
+  document.addEventListener("focusin", tapPadDismiss);
 
   $("#addSong").addEventListener("click", function () {
     pushHistory();
@@ -721,33 +740,37 @@
     if (!el || !host) return;
     var aW = host.clientWidth, aH = host.clientHeight;
     if (!aW || !aH) return;
-    el.style.transform = "none";
+    el.style.transform = "none"; el.style.marginBottom = "";
 
-    // On tall/narrow screens (phones, portrait tablets) a fixed A4-width page fills
-    // only the width and wastes the height. Reflow it to a narrower width so its
-    // shape matches the screen and it fills the vertical space too — but never
-    // narrower than the widest tab (tabs are fixed-width and must stay readable).
-    if (aH > aW * 1.1) {
+    var portrait = aH > aW * 1.1;
+    document.body.classList.toggle("stage-portrait", portrait);
+
+    if (portrait) {
+      // Phones: LONG, not LARGE. Reflow the sheet to the screen width (never
+      // narrower than the widest tab), keep text at its natural size, and let
+      // the page scroll vertically like a real song sheet.
       el.style.width = "794px";
       var tabW = 0;
       $$("pre.tab", el).forEach(function (p) { tabW = Math.max(tabW, p.scrollWidth); });
-      var minW = Math.max(340, tabW ? tabW + 92 : 340);
-      var target = aW / aH, Wb = 794;
-      for (var i = 0; i < 5; i++) {
-        el.style.width = Wb + "px";
-        var h = el.offsetHeight; if (!h) break;
-        var asp = Wb / h;
-        if (Math.abs(asp - target) <= 0.03) break;       // page shape ≈ screen shape
-        Wb = Math.max(minW, Math.min(1000, Wb * Math.sqrt(target / asp)));
-      }
+      var minW = Math.max(320, tabW ? tabW + 46 : 320);
+      var Wb = Math.max(minW, aW);
       el.style.width = Wb + "px";
-    } else {
-      el.style.width = "794px";                          // desktop: keep the A4 page
+      if (Wb > aW) {                       // tabs wider than the screen: scale down
+        var k0 = aW / Wb;
+        el.style.transformOrigin = "top left";
+        el.style.transform = "scale(" + k0.toFixed(4) + ")";
+        // transform doesn't shrink layout height -> fix the scroll extent
+        el.style.marginBottom = -(el.offsetHeight * (1 - k0)) + "px";
+      }
+      var wrap = $(".preview-wrap"); if (wrap) wrap.scrollTop = 0;
+      return;
     }
 
+    // Landscape / desktop: biggest scale that fits the WHOLE page on one screen.
+    el.style.width = "794px";
     var Wn = el.offsetWidth, Hn = el.offsetHeight;
     if (!Wn || !Hn) return;
-    var k = Math.min(aW / Wn, aH / Hn);                  // biggest that fits BOTH → one page
+    var k = Math.min(aW / Wn, aH / Hn);
     if (!isFinite(k) || k <= 0) k = 1;
     var tx = Math.max(0, (aW - k * Wn) / 2), ty = Math.max(0, (aH - k * Hn) / 2);
     el.style.transformOrigin = "top left";
@@ -767,6 +790,7 @@
     stageIdx = Math.max(0, Math.min(sh.length - 1, i));
     renderStageCurrent();
     if (window.scrollTo) window.scrollTo(0, 0);      // start at the top of the new song
+    var wrap = $(".preview-wrap"); if (wrap) wrap.scrollTop = 0;
   }
   function enterStage() {
     document.body.classList.add("stage");
@@ -780,9 +804,11 @@
   }
   function exitStage() {
     document.body.classList.remove("stage");
+    document.body.classList.remove("stage-portrait");
     $$("#preview .sheet").forEach(function (s) {
       s.classList.remove("stage-current");
       s.style.transform = ""; s.style.transformOrigin = ""; s.style.width = "";
+      s.style.marginBottom = "";
     });
   }
   function toggleStage() { document.body.classList.contains("stage") ? exitStage() : enterStage(); }
@@ -1207,10 +1233,11 @@
     }
   }
   function closeSetlist() { $("#setModal").classList.remove("open"); }
+  function openSetlist() { drawSetlist(); $("#setModal").classList.add("open"); }
   var stageSet = $("#stageSet");
-  if (stageSet) stageSet.addEventListener("click", function () {
-    drawSetlist(); $("#setModal").classList.add("open");
-  });
+  if (stageSet) stageSet.addEventListener("click", openSetlist);
+  var setBtn = $("#setBtn");   // also reachable from the main editor screen
+  if (setBtn) setBtn.addEventListener("click", function (e) { e.stopPropagation(); openSetlist(); });
   $("#setClose").addEventListener("click", closeSetlist);
   $("#setModal").addEventListener("click", function (e) { if (e.target === $("#setModal")) closeSetlist(); });
   $("#setBar").addEventListener("change", function (e) {
@@ -1275,7 +1302,16 @@
       return;
     }
     var row = e.target.closest(".set-row");
-    if (row && !row.hasAttribute("data-noj")) { jumpToSong(+row.getAttribute("data-i")); closeSetlist(); }
+    if (row && !row.hasAttribute("data-noj")) {
+      var ti = +row.getAttribute("data-i");
+      if (document.body.classList.contains("stage")) jumpToSong(ti);
+      else {           // from the editor: open that song's card and scroll to it
+        UI.openSong = ti; renderEditor();
+        var card = $('[data-card="' + ti + '"]');
+        if (card && card.scrollIntoView) card.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+      closeSetlist();
+    }
   });
 
   /* =====================================================================
