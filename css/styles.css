@@ -58,6 +58,8 @@ code{font-family:var(--mono);background:#eef1f4;padding:0 3px;border-radius:3px;
   .layout{grid-template-columns:1fr;height:auto}
   .editor{border-right:0;border-bottom:1px solid var(--line)}
   .resizer{display:none}
+  /* topbar menus wrap to the left here, so open dropdowns leftward (not off-screen) */
+  .menu-pop{left:0;right:auto;max-width:calc(100vw - 16px)}
 }
 
 /* ---- editor ---- */

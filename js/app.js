@@ -560,11 +560,35 @@
     if (!document.body.classList.contains("stage")) return;
     var el = $("#preview .sheet.stage-current"), host = $("#preview");
     if (!el || !host) return;
-    el.style.transform = "none";                         // measure natural size
-    var Wn = el.offsetWidth, Hn = el.offsetHeight;
     var aW = host.clientWidth, aH = host.clientHeight;
-    if (!Wn || !Hn || !aW || !aH) return;
-    var k = Math.min(aW / Wn, aH / Hn);                  // fit both axes → one page max
+    if (!aW || !aH) return;
+    el.style.transform = "none";
+
+    // On tall/narrow screens (phones, portrait tablets) a fixed A4-width page fills
+    // only the width and wastes the height. Reflow it to a narrower width so its
+    // shape matches the screen and it fills the vertical space too — but never
+    // narrower than the widest tab (tabs are fixed-width and must stay readable).
+    if (aH > aW * 1.1) {
+      el.style.width = "794px";
+      var tabW = 0;
+      $$("pre.tab", el).forEach(function (p) { tabW = Math.max(tabW, p.scrollWidth); });
+      var minW = Math.max(340, tabW ? tabW + 92 : 340);
+      var target = aW / aH, Wb = 794;
+      for (var i = 0; i < 5; i++) {
+        el.style.width = Wb + "px";
+        var h = el.offsetHeight; if (!h) break;
+        var asp = Wb / h;
+        if (Math.abs(asp - target) <= 0.03) break;       // page shape ≈ screen shape
+        Wb = Math.max(minW, Math.min(1000, Wb * Math.sqrt(target / asp)));
+      }
+      el.style.width = Wb + "px";
+    } else {
+      el.style.width = "794px";                          // desktop: keep the A4 page
+    }
+
+    var Wn = el.offsetWidth, Hn = el.offsetHeight;
+    if (!Wn || !Hn) return;
+    var k = Math.min(aW / Wn, aH / Hn);                  // biggest that fits BOTH → one page
     if (!isFinite(k) || k <= 0) k = 1;
     var tx = Math.max(0, (aW - k * Wn) / 2), ty = Math.max(0, (aH - k * Hn) / 2);
     el.style.transformOrigin = "top left";
@@ -597,7 +621,7 @@
     document.body.classList.remove("stage");
     $$("#preview .sheet").forEach(function (s) {
       s.classList.remove("stage-current");
-      s.style.transform = ""; s.style.transformOrigin = "";
+      s.style.transform = ""; s.style.transformOrigin = ""; s.style.width = "";
     });
   }
   function toggleStage() { document.body.classList.contains("stage") ? exitStage() : enterStage(); }
