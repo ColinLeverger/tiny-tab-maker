@@ -69,6 +69,19 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 
 /* ---- editor ---- */
 .editor h2{font-size:1rem;margin:.2rem 0 .6rem}
+.ed-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem}
+.ed-head h2{margin:0;flex:1}
+
+/* review queue */
+.rv-progress{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.rv-song{font-weight:700;color:var(--head);margin:.1rem 0 .45rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.rv-song .rv-sec{font-weight:600;font-size:.85rem;background:#f0f2f5;border-radius:999px;padding:.15rem .6rem}
+.rv-song .rv-sec.red{background:#fdf0ef}
+.rv-song .rv-sec.yellow{background:#fdf7e6}
+.rv-fields{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-top:.6rem}
+.rv-fields .rv-wide{grid-column:1/-1}
+.rv-actions{border-top:1px dashed var(--line);padding-top:.6rem}
+.rv-actions #rvBack{min-width:52px}
 .song-card{border:1px solid var(--line);border-radius:9px;margin-bottom:.7rem;background:#fff;overflow:hidden}
 .song-card>.sc-head{display:flex;align-items:center;gap:.4rem;padding:.45rem .55rem;
   background:#f6f8fa;border-bottom:1px solid var(--line);cursor:grab}

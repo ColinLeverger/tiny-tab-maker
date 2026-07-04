@@ -85,6 +85,13 @@ On top of it:
 - **🖍 Practice digest** (Generate menu): every mark & note in the book on one
   page, red-first per song — the "what to fix at home" list. Printable on
   demand (unlike the per-sheet scribbles, which never print).
+- **🖍 Review notes** (button on the Editor header, with live count): the
+  digest's action twin — an inbox-zero queue that shows one note at a time
+  (with its voice memos, playable), lets you fix Tempo / Key / the matching
+  chord line / song notes **in place**, then *✓ Fixed* clears the note and
+  slides the next in; *Keep ›* skips, ✕ deletes single note lines, and
+  "open full card" bails out to the editor for bigger surgery. One undo step
+  per reviewed entry.
 - **🥁 Tap** (top bar, or in ☰ preset to the current song's tempo) opens
   `tap.html`: a full-screen tap-tempo pad + Web Audio metronome with accented
   downbeat (2/4 · 3/4 · 4/4 · 6/8), `?bpm=` preset, zero dependencies.

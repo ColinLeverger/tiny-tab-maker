@@ -65,7 +65,9 @@
 <div class="layout">
   <!-- ===== EDITOR ===== -->
   <aside class="editor">
-    <h2>Editor</h2>
+    <div class="ed-head"><h2>Editor</h2>
+      <button class="btn sm" id="reviewBtn" title="Walk through every rehearsal note, fix the data, clear the note">🖍 Review notes</button>
+    </div>
 
     <div class="song-card" id="metaCard">
       <div class="sc-head" data-toggle="meta"><span class="num">⚙</span>
@@ -166,6 +168,22 @@
     </div>
     <div class="set-bar" id="setBar"></div>
     <div id="setList"></div>
+  </div>
+</div>
+
+<!-- ===== REVIEW QUEUE (triage rehearsal notes into the data) ===== -->
+<div class="modal-bg bs-bg" id="reviewModal">
+  <div class="bsheet">
+    <div class="bs-head"><h3>🖍 Review notes</h3>
+      <span id="rvProgress" class="rv-progress"></span>
+      <button class="btn sm" id="rvClose">✕</button>
+    </div>
+    <div id="rvBody"></div>
+    <div class="bs-actions rv-actions">
+      <button class="btn" id="rvBack" title="Previous note">‹</button>
+      <button class="btn" id="rvSkip" title="Keep this note, see the next">Keep ›</button>
+      <button class="btn primary" id="rvFixed" title="Data fixed — clear this note and continue">✓ Fixed — clear</button>
+    </div>
   </div>
 </div>
 

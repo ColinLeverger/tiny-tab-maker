@@ -239,6 +239,12 @@
 
   function renderEditor() {
     fillMeta();
+    var rb = $("#reviewBtn");
+    if (rb) {
+      var rn = reviewCount();
+      rb.textContent = "🖍 Review notes" + (rn ? " (" + rn + ")" : "");
+      rb.disabled = !rn;
+    }
     var host = $("#editor-list");
     if (!STATE.songs.length) {
       host.innerHTML = '<div class="empty-hint">No songs yet. Use “＋ Add a song” or Data → Load demo.</div>';
@@ -1079,7 +1085,19 @@
     PLAYING.audio.pause();
     URL.revokeObjectURL(PLAYING.url);
     PLAYING = null;
-    $$("#rhMemos [data-mid]").forEach(function (b) { b.textContent = "▶"; });
+    $$("[data-mid]").forEach(function (b) { b.textContent = "▶"; });   // any memo list
+  }
+  function playMemo(id, btn) {
+    if (PLAYING && PLAYING.id === id) { stopPlayback(); return; }
+    stopPlayback();
+    mall().then(function (list) {
+      var m = list.filter(function (x) { return x.id === id; })[0]; if (!m) return;
+      var url = URL.createObjectURL(m.blob), a = new Audio(url);
+      PLAYING = { id: id, audio: a, url: url };
+      btn.textContent = "⏸";
+      a.onended = stopPlayback;
+      a.play().catch(stopPlayback);
+    });
   }
   function drawMemos() {
     if (!memoOK || !RH) return;
@@ -1112,17 +1130,7 @@
     var del = e.target.closest("[data-mdel]");
     if (del) { stopPlayback(); mdel(del.getAttribute("data-mdel")).then(drawMemos); return; }
     var pb = e.target.closest("[data-mid]"); if (!pb) return;
-    var id = pb.getAttribute("data-mid");
-    if (PLAYING && PLAYING.id === id) { stopPlayback(); return; }
-    stopPlayback();
-    mall().then(function (list) {
-      var m = list.filter(function (x) { return x.id === id; })[0]; if (!m) return;
-      var url = URL.createObjectURL(m.blob), a = new Audio(url);
-      PLAYING = { id: id, audio: a, url: url };
-      pb.textContent = "⏸";
-      a.onended = stopPlayback;
-      a.play().catch(stopPlayback);
-    });
+    playMemo(pb.getAttribute("data-mid"), pb);
   });
 
   /* ---- export / import with memos (file path — NOT the share URL) ---- */
@@ -1358,6 +1366,142 @@
   });
 
   /* =====================================================================
+   *  REVIEW QUEUE — inbox-zero triage of rehearsal notes, one at a time:
+   *  read the note (play its memos), fix the relevant fields IN PLACE,
+   *  "✓ Fixed" clears the note and slides the next in. "Keep" skips.
+   * ===================================================================== */
+  var RV = null; // { list: [{si, sec}], k, snapped }
+  function buildReviewList() {
+    var rank = { red: 0, yellow: 1 }, out = [];
+    STATE.songs.forEach(function (s, si) {
+      var es = FG.rhEntries(s);
+      es.sort(function (a, b) {
+        return (a[1].c in rank ? rank[a[1].c] : 2) - (b[1].c in rank ? rank[b[1].c] : 2);
+      });
+      es.forEach(function (kv) { out.push({ si: si, sec: kv[0] }); });
+    });
+    return out;
+  }
+  function reviewCount() { return buildReviewList().length; }
+  function openReview() { RV = { list: buildReviewList(), k: 0, snapped: false }; drawReview(); $("#reviewModal").classList.add("open"); }
+  function closeReview() {
+    stopPlayback();
+    $("#reviewModal").classList.remove("open");
+    RV = null;
+    renderAll();                                  // reflect all triage edits in the editor
+  }
+  function rvEntry() {
+    if (!RV || !RV.list.length) return null;
+    RV.k = Math.max(0, Math.min(RV.list.length - 1, RV.k));
+    var it = RV.list[RV.k], s = STATE.songs[it.si];
+    var e = s && s.rehearsal && s.rehearsal[it.sec];
+    if (!e || (!e.c && !e.note)) {                // entry vanished meanwhile
+      RV.list.splice(RV.k, 1);
+      return rvEntry();
+    }
+    return { it: it, s: s, e: e };
+  }
+  function drawReview() {
+    stopPlayback();
+    var cur = rvEntry();
+    $("#rvProgress").textContent = RV.list.length ? (RV.k + 1) + " / " + RV.list.length : "";
+    var foot = $(".rv-actions");
+    if (!cur) {
+      $("#rvBody").innerHTML = '<div class="empty-hint">Nothing left to review 🎉<br>' +
+        '<span style="font-size:.85em;color:var(--muted)">Marks and notes you add in 📖 View will queue up here.</span></div>';
+      if (foot) foot.style.display = "none";
+      return;
+    }
+    if (foot) foot.style.display = "";
+    var s = cur.s, e = cur.e, sec = cur.it.sec, si = cur.it.si;
+    RV.snapped = false;                           // one undo step per entry's edits
+    var lines = (e.note || "").split("\n").filter(Boolean);
+    var noteHtml = lines.map(function (ln, k) {
+      return '<div class="rh-note-row"><span class="rh-n">' + noteNum(k) + "</span>" +
+        "<span>" + esc(ln) + "</span>" +
+        '<button class="btn sm danger" data-rvln="' + k + '" title="Delete this note line">✕</button></div>';
+    }).join("") || '<div class="rh-note-row"><span></span><span style="color:var(--muted)">(mark only, no text)</span></div>';
+    // chord row whose label matches the section, if any -> editable in place
+    var ci = -1;
+    (s.chords || []).some(function (c, i) {
+      if ((c.label || "").trim().toLowerCase() === sec.trim().toLowerCase()) { ci = i; return true; }
+      return false;
+    });
+    $("#rvBody").innerHTML =
+      '<div class="rv-song">' + esc(s.num) + " — " + esc(s.title || "(untitled)") +
+        ' <span class="rv-sec' + (e.c ? " " + e.c : "") + '">' + (e.c ? '<span class="rdot ' + e.c + '"></span>' : "") + esc(rhLabel(sec)) + "</span>" +
+        ' <a href="#" id="rvOpenCard" style="font-size:.8rem">open full card ›</a></div>' +
+      noteHtml +
+      '<div id="rvMemos"></div>' +
+      '<div class="rv-fields">' +
+        '<div class="row"><label>Tempo</label><input data-rvf="tempo" value="' + esc(s.tempo) + '"></div>' +
+        '<div class="row"><label>Key</label><input data-rvf="key" value="' + esc(s.key) + '"></div>' +
+        (ci >= 0
+          ? '<div class="row rv-wide"><label>Chords — ' + esc(s.chords[ci].label) + '</label><input data-rvc="' + ci + '" value="' + esc(s.chords[ci].value) + '"></div>'
+          : "") +
+        '<div class="row rv-wide"><label>Song notes</label><input data-rvf="notes" value="' + esc(s.notes) + '"></div>' +
+      "</div>";
+    // memos of this song+section, playable right here
+    if (memoOK) mall().then(function (list) {
+      if (!RV) return;
+      var mine = list.filter(function (m) { return m.songId === s.id && m.sec === sec; });
+      var host = $("#rvMemos"); if (!host) return;
+      host.innerHTML = mine.map(function (m) {
+        return '<div class="memo-row"><button class="btn sm" data-mid="' + m.id + '">▶</button>' +
+          '<span class="m-meta">' + fmtDur(m.dur) + " · " + memoDaysLeft(m) + "d left</span></div>";
+      }).join("");
+    }).catch(function () {});
+    var oc = $("#rvOpenCard");
+    if (oc) oc.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      closeReview();
+      UI.openSong = si; renderEditor();
+      var card = $('[data-card="' + si + '"]');
+      if (card && card.scrollIntoView) card.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
+  function rvSnap() { if (RV && !RV.snapped) { pushHistory(); RV.snapped = true; } }
+  $("#rvBody").addEventListener("input", function (ev) {
+    var t = ev.target, cur = rvEntry(); if (!cur) return;
+    rvSnap(); touchUpdated();
+    if (t.hasAttribute("data-rvf")) cur.s[t.getAttribute("data-rvf")] = t.value;
+    else if (t.hasAttribute("data-rvc")) {
+      var c = cur.s.chords[+t.getAttribute("data-rvc")]; if (c) c.value = t.value;
+    } else return;
+    updatePreview(); persist();
+  });
+  $("#rvBody").addEventListener("click", function (ev) {
+    var pb = ev.target.closest("[data-mid]");
+    if (pb) { playMemo(pb.getAttribute("data-mid"), pb); return; }
+    var ln = ev.target.closest("[data-rvln]");
+    if (!ln) return;
+    var cur = rvEntry(); if (!cur) return;
+    rvSnap();
+    var lines = (cur.e.note || "").split("\n").filter(Boolean);
+    lines.splice(+ln.getAttribute("data-rvln"), 1);
+    if (lines.length) cur.e.note = lines.join("\n"); else delete cur.e.note;
+    if (!cur.e.c && !cur.e.note) {                // nothing left -> entry resolved
+      delete cur.s.rehearsal[cur.it.sec];
+      if (!Object.keys(cur.s.rehearsal).length) delete cur.s.rehearsal;
+      RV.list.splice(RV.k, 1);
+    }
+    persist(); drawReview();
+  });
+  $("#rvFixed").addEventListener("click", function () {
+    var cur = rvEntry(); if (!cur) return;
+    rvSnap(); touchUpdated();
+    delete cur.s.rehearsal[cur.it.sec];
+    if (cur.s.rehearsal && !Object.keys(cur.s.rehearsal).length) delete cur.s.rehearsal;
+    RV.list.splice(RV.k, 1);                      // next one slides into place
+    persist(); drawReview();
+  });
+  $("#rvSkip").addEventListener("click", function () { if (RV && RV.k < RV.list.length - 1) { RV.k++; drawReview(); } });
+  $("#rvBack").addEventListener("click", function () { if (RV && RV.k > 0) { RV.k--; drawReview(); } });
+  $("#rvClose").addEventListener("click", closeReview);
+  $("#reviewModal").addEventListener("click", function (e) { if (e.target === $("#reviewModal")) closeReview(); });
+  $("#reviewBtn").addEventListener("click", openReview);
+
+  /* =====================================================================
    *  SHARE VIA URL — whole songbook compressed into the #d= fragment.
    *  The fragment never reaches the server (GitHub Pages sees nothing).
    *  #s=<n> optionally opens stage view on song n.
@@ -1412,6 +1556,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       if (RH) { closeRh(); return; }
+      if (RV) { closeReview(); return; }
       if ($("#digestModal").classList.contains("open")) { closeDigest(); return; }
       if ($("#setModal").classList.contains("open")) { closeSetlist(); return; }
       if (TAB) { closeTab(); return; }
