@@ -199,15 +199,17 @@ pre.tab{font-family:var(--mono);font-size:calc(var(--fs,12pt) * 0.7);line-height
 body.stage{height:auto}
 body.stage .topbar,body.stage .editor,body.stage .resizer{display:none !important}
 body.stage .layout{display:block;height:auto}
-body.stage .preview-wrap{height:auto;overflow:visible;background:#dfe3e8;
-  padding:10px 8px calc(88px + env(safe-area-inset-bottom,0px))}
-body.stage #preview{max-width:900px;margin:0 auto}
-body.stage .pagegroup{display:block;max-width:none;border:0;background:none;padding:0;margin:0}
+/* fill the screen; JS scales the current song to be as big as fits on ONE page */
+body.stage .preview-wrap{height:100vh;overflow:hidden;background:#dfe3e8;
+  padding:10px 8px calc(80px + env(safe-area-inset-bottom,0px))}
+body.stage #preview{position:relative;width:100%;height:100%;max-width:none;margin:0}
+body.stage .pagegroup{display:contents}
 body.stage .pagegroup .pagelabel{display:none}
-/* one song sheet at a time (slide-style), regardless of device size */
-body.stage .sheet{display:none;width:100%;max-width:none;margin:0 auto;padding:6mm 5mm}
-body.stage .sheet.stage-current{display:block}
-body.stage .sheet.cover{min-height:auto}
+/* one song at a time; JS centres + scales the current sheet to fit exactly */
+body.stage .sheet{display:none}
+body.stage .sheet.stage-current{display:block;position:absolute;top:0;left:0;
+  width:794px;max-width:none;margin:0;padding:12mm 12mm;
+  transform-origin:top left;box-shadow:0 3px 18px rgba(0,0,0,.22)}
 
 /* floating navigation pill */
 body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;

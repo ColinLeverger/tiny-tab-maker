@@ -554,26 +554,27 @@
       : (cur && cur.querySelector(".fh-title") ? cur.querySelector(".fh-title").textContent : "");
     el.textContent = sh.length ? (stageIdx + 1) + " / " + sh.length + (name ? " · " + name : "") : "";
   }
-  // shrink any tab wider than the screen so the whole thing fits — no sideways
-  // scrolling on phones. Only the visible song's tabs, reset on exit.
-  function fitStageTabs() {
+  // scale the current song sheet to be as large as possible while still fitting
+  // on ONE screen (no scrolling), then centre it. Biggest, but never overflowing.
+  function fitStageSheet() {
     if (!document.body.classList.contains("stage")) return;
-    var cur = $("#preview .sheet.stage-current"); if (!cur) return;
-    $$("pre.tab", cur).forEach(function (p) {
-      p.style.fontSize = "";                         // reset to the CSS (PDF-parity) size
-      var avail = p.clientWidth - 2;
-      if (avail > 0 && p.scrollWidth > avail) {
-        var base = parseFloat(getComputedStyle(p).fontSize) || 12;
-        var target = base * (avail / p.scrollWidth) * 0.99;
-        p.style.fontSize = Math.max(8, target).toFixed(2) + "px";   // keep it legible
-      }
-    });
+    var el = $("#preview .sheet.stage-current"), host = $("#preview");
+    if (!el || !host) return;
+    el.style.transform = "none";                         // measure natural size
+    var Wn = el.offsetWidth, Hn = el.offsetHeight;
+    var aW = host.clientWidth, aH = host.clientHeight;
+    if (!Wn || !Hn || !aW || !aH) return;
+    var k = Math.min(aW / Wn, aH / Hn);                  // fit both axes → one page max
+    if (!isFinite(k) || k <= 0) k = 1;
+    var tx = Math.max(0, (aW - k * Wn) / 2), ty = Math.max(0, (aH - k * Hn) / 2);
+    el.style.transformOrigin = "top left";
+    el.style.transform = "translate(" + tx.toFixed(1) + "px," + ty.toFixed(1) + "px) scale(" + k.toFixed(4) + ")";
   }
   function renderStageCurrent() {
     var sh = stageSheets(); if (!sh.length) return false;
     stageIdx = Math.max(0, Math.min(sh.length - 1, stageIdx));
     sh.forEach(function (s, i) { s.classList.toggle("stage-current", i === stageIdx); });
-    updateStageLabel(); fitStageTabs();
+    updateStageLabel(); fitStageSheet();
     return true;
   }
   function stageGo(i) {
@@ -594,8 +595,10 @@
   }
   function exitStage() {
     document.body.classList.remove("stage");
-    $$("#preview .sheet").forEach(function (s) { s.classList.remove("stage-current"); });
-    $$("#preview pre.tab").forEach(function (p) { p.style.fontSize = ""; });
+    $$("#preview .sheet").forEach(function (s) {
+      s.classList.remove("stage-current");
+      s.style.transform = ""; s.style.transformOrigin = "";
+    });
   }
   function toggleStage() { document.body.classList.contains("stage") ? exitStage() : enterStage(); }
 
@@ -603,7 +606,7 @@
   var sPrev = $("#stagePrev"); if (sPrev) sPrev.addEventListener("click", function () { stageGo(stageIdx - 1); });
   var sNext = $("#stageNext"); if (sNext) sNext.addEventListener("click", function () { stageGo(stageIdx + 1); });
   var sExit = $("#stageExit"); if (sExit) sExit.addEventListener("click", exitStage);
-  window.addEventListener("resize", function () { if (document.body.classList.contains("stage")) fitStageTabs(); });
+  window.addEventListener("resize", function () { if (document.body.classList.contains("stage")) fitStageSheet(); });
   // expose for the preview-refresh hook (re-apply current sheet after a re-render)
   root.__ttmStageRefresh = function () { if (document.body.classList.contains("stage")) renderStageCurrent(); };
 
