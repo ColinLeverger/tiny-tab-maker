@@ -117,6 +117,7 @@
         ? FG.paginate(STATE, opts) : null;
       pv.innerHTML = FG.renderPreview(STATE, opts, pg && pg.songPage);
       updatePageCount(pg);
+      if (root.__ttmStageRefresh) root.__ttmStageRefresh();   // keep View mode in sync
     }, 160);
   }
   function updatePageCount(pg) {
@@ -545,7 +546,7 @@
    *  STAGE / READING VIEW — hide editor, full-screen sheets, song nav
    * ===================================================================== */
   function stageSheets() { return $$("#preview .sheet"); }
-  var stageIdx = 0, stageObs = null;
+  var stageIdx = 0;
   function updateStageLabel() {
     var el = $("#stageLabel"); if (!el) return;
     var sh = stageSheets(), cur = sh[stageIdx];
@@ -553,42 +554,48 @@
       : (cur && cur.querySelector(".fh-title") ? cur.querySelector(".fh-title").textContent : "");
     el.textContent = sh.length ? (stageIdx + 1) + " / " + sh.length + (name ? " · " + name : "") : "";
   }
-  function stageGo(i, instant) {
+  // shrink any tab wider than the screen so the whole thing fits — no sideways
+  // scrolling on phones. Only the visible song's tabs, reset on exit.
+  function fitStageTabs() {
+    if (!document.body.classList.contains("stage")) return;
+    var cur = $("#preview .sheet.stage-current"); if (!cur) return;
+    $$("pre.tab", cur).forEach(function (p) {
+      p.style.fontSize = "";                         // reset to the CSS (PDF-parity) size
+      var avail = p.clientWidth - 2;
+      if (avail > 0 && p.scrollWidth > avail) {
+        var base = parseFloat(getComputedStyle(p).fontSize) || 12;
+        var target = base * (avail / p.scrollWidth) * 0.99;
+        p.style.fontSize = Math.max(8, target).toFixed(2) + "px";   // keep it legible
+      }
+    });
+  }
+  function renderStageCurrent() {
+    var sh = stageSheets(); if (!sh.length) return false;
+    stageIdx = Math.max(0, Math.min(sh.length - 1, stageIdx));
+    sh.forEach(function (s, i) { s.classList.toggle("stage-current", i === stageIdx); });
+    updateStageLabel(); fitStageTabs();
+    return true;
+  }
+  function stageGo(i) {
     var sh = stageSheets(); if (!sh.length) return;
     stageIdx = Math.max(0, Math.min(sh.length - 1, i));
-    var el = sh[stageIdx];
-    if (el && el.scrollIntoView) el.scrollIntoView({ behavior: instant ? "auto" : "smooth", block: "start" });
-    updateStageLabel();
-  }
-  function buildStageObs() {
-    if (stageObs) { stageObs.disconnect(); stageObs = null; }
-    if (typeof IntersectionObserver === "undefined") return;
-    var sh = stageSheets();
-    stageObs = new IntersectionObserver(function (ents) {
-      ents.forEach(function (en) {
-        if (en.isIntersecting) { var i = sh.indexOf(en.target); if (i >= 0) { stageIdx = i; updateStageLabel(); } }
-      });
-    }, { rootMargin: "-45% 0px -45% 0px", threshold: 0 });
-    sh.forEach(function (s) { stageObs.observe(s); });
+    renderStageCurrent();
+    if (window.scrollTo) window.scrollTo(0, 0);      // start at the top of the new song
   }
   function enterStage() {
     document.body.classList.add("stage");
-    var apply = function () {
-      var sh = stageSheets();
-      if (!sh.length) return false;                  // preview not rendered yet
-      if (stageIdx <= 0) {                            // first entry: jump to the first song
-        var fi = sh.findIndex(function (s) { return s.classList.contains("songsheet"); });
-        stageIdx = fi > 0 ? fi : 0;
-      }
-      buildStageObs();
-      stageGo(stageIdx, true);
-      return true;
-    };
-    if (!apply()) setTimeout(apply, 200);            // retry once the debounced preview lands
+    var sh = stageSheets();
+    if (stageIdx <= 0) {                             // first entry: jump to the first song
+      var fi = sh.findIndex(function (s) { return s.classList.contains("songsheet"); });
+      stageIdx = fi > 0 ? fi : 0;
+    }
+    if (!renderStageCurrent()) setTimeout(renderStageCurrent, 200); // retry after debounced render
+    if (window.scrollTo) window.scrollTo(0, 0);
   }
   function exitStage() {
     document.body.classList.remove("stage");
-    if (stageObs) { stageObs.disconnect(); stageObs = null; }
+    $$("#preview .sheet").forEach(function (s) { s.classList.remove("stage-current"); });
+    $$("#preview pre.tab").forEach(function (p) { p.style.fontSize = ""; });
   }
   function toggleStage() { document.body.classList.contains("stage") ? exitStage() : enterStage(); }
 
@@ -596,6 +603,9 @@
   var sPrev = $("#stagePrev"); if (sPrev) sPrev.addEventListener("click", function () { stageGo(stageIdx - 1); });
   var sNext = $("#stageNext"); if (sNext) sNext.addEventListener("click", function () { stageGo(stageIdx + 1); });
   var sExit = $("#stageExit"); if (sExit) sExit.addEventListener("click", exitStage);
+  window.addEventListener("resize", function () { if (document.body.classList.contains("stage")) fitStageTabs(); });
+  // expose for the preview-refresh hook (re-apply current sheet after a re-render)
+  root.__ttmStageRefresh = function () { if (document.body.classList.contains("stage")) renderStageCurrent(); };
 
   // keyboard: Esc closes modal / leaves View; arrows flip songs in View mode
   document.addEventListener("keydown", function (e) {

@@ -204,7 +204,9 @@ body.stage .preview-wrap{height:auto;overflow:visible;background:#dfe3e8;
 body.stage #preview{max-width:900px;margin:0 auto}
 body.stage .pagegroup{display:block;max-width:none;border:0;background:none;padding:0;margin:0}
 body.stage .pagegroup .pagelabel{display:none}
-body.stage .sheet{width:100%;max-width:none;margin:0 auto 12px;padding:6mm 5mm}
+/* one song sheet at a time (slide-style), regardless of device size */
+body.stage .sheet{display:none;width:100%;max-width:none;margin:0 auto;padding:6mm 5mm}
+body.stage .sheet.stage-current{display:block}
 body.stage .sheet.cover{min-height:auto}
 
 /* floating navigation pill */
