@@ -149,6 +149,12 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .cellbtn.set{background:#dbe7fb;font-weight:700;color:var(--accent-d);border-radius:4px}
 .symcell{font-family:var(--mono);font-weight:700;color:#7a4fb0}
 .coltools{display:flex;flex-direction:column;gap:2px;padding:2px}
+.coldrag{cursor:grab;color:var(--muted);font-size:.7rem;line-height:1;text-align:center;
+  letter-spacing:-1px;user-select:none;padding:1px 0}
+.coldrag:hover{color:var(--accent)}
+.coldrag:active{cursor:grabbing}
+.tabgrid td.tdrop-l{box-shadow:inset 3px 0 0 var(--accent)}
+.tabgrid td.tdrop-r{box-shadow:inset -3px 0 0 var(--accent)}
 .coltools button{font-size:.62rem;border:1px solid var(--line2);background:#fff;border-radius:4px;cursor:pointer;padding:1px 3px}
 .coltools button:hover{background:#f0f2f5}
 .tg-toolbar{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem;align-items:center}
@@ -160,6 +166,11 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
  *  PREVIEW SHEETS  (shared with print)
  * ===================================================================== */
 #preview{max-width:820px;margin:0 auto}
+/* edit mode: double-click deep-links into the editor; touch-action lets
+   iOS fire dblclick on double-tap instead of double-tap-zooming */
+body:not(.stage) #preview .songsheet{touch-action:manipulation}
+body:not(.stage) #preview .songsheet .chords tr:hover td{background:#f2f6fd}
+body:not(.stage) #preview .songsheet:hover{outline:1px dashed var(--line2)}
 .sheet{background:#fff;color:#11151a;border-radius:4px;box-shadow:0 2px 10px rgba(0,0,0,.12);
   padding:16mm 14mm;margin:0 auto 1.2rem;width:210mm;min-height:auto}
 .sheet h3{font-size:.92rem;margin:1.6rem 0 .55rem;color:var(--head)}
@@ -379,6 +390,15 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
    (rapid multi-skip on desktop). Ellipsis inside, buttons stay put. */
 .stage-label{font-size:.82rem;padding:0 .4rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   width:min(320px,38vw);flex:0 0 auto;text-align:center}
+
+/* small screens: the stage nav must NEVER lose buttons off-screen (the blue
+   ✕ Edit was overflowing). Full-width bar, label shrinks, buttons stay. */
+@media(max-width:560px){
+  body.stage .stage-nav{left:8px;right:8px;transform:none;max-width:none;
+    justify-content:space-between}
+  .stage-label{width:auto;flex:1 1 auto;min-width:0}
+  .stage-nav .btn.nav{padding:.55rem .6rem;flex:0 0 auto}
+}
 
 /* small screens: make the fixed-A4 preview fluid so phones/tablets can read it */
 @media(max-width:820px){

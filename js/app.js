@@ -365,7 +365,7 @@
       if (s.rehearsal && !Object.keys(s.rehearsal).length) delete s.rehearsal;
       renderAll(); return;
     }
-    if (act === "tapTempo") { e.stopPropagation(); tapTempoClick(si); return; }
+    if (act === "tapTempo") { e.stopPropagation(); tapTempoClick(si, e); return; }
   });
 
   /* =====================================================================
@@ -385,7 +385,9 @@
     if (!TAPT) return;
     clearTimeout(TAPT.t10); clearTimeout(TAPT.tIdle);
     TAPT = null;
-    $("#tapPad").classList.remove("open");
+    var pad = $("#tapPad");
+    pad.classList.remove("open");
+    pad.style.left = ""; pad.style.top = ""; pad.style.bottom = ""; pad.style.transform = "";
   }
   function tapTempoFinish() {
     if (!TAPT) return;
@@ -402,17 +404,35 @@
     touchUpdated(); updatePreview(); persist();
     setStatus("✓ Tempo: ~" + bpm + " BPM (" + taps.length + " taps)");
   }
-  function tapTempoClick(si) {          // the 🥁 button: open (or re-target) the pad
+  function tapTempoClick(si, ev) {      // the 🥁 button: open (or re-target) the pad
     if (TAPT && TAPT.si !== si) tapTempoFinish();
     if (!TAPT) {
       TAPT = { si: si, taps: [], t10: null, tIdle: null, opened: Date.now() };
       var s = STATE.songs[si];
       $("#tpBpm").textContent = "—";
       $("#tpCount").textContent = s && s.title ? s.title : "";
-      $("#tapPad").classList.add("open");
+      var pad = $("#tapPad");
+      pad.classList.add("open");
+      // desktop (fine pointer): the pad lands right UNDER the mouse — no travel.
+      // phones keep the bottom-centered sheet.
+      var fine = root.matchMedia && root.matchMedia("(pointer: fine)").matches;
+      if (fine && ev && ev.clientX != null) {
+        // centre of the TAP hit zone lands EXACTLY on the click point — the
+        // mouse doesn't move an inch between opening and tapping.
+        pad.style.bottom = "auto"; pad.style.transform = "none";
+        pad.style.left = "0px"; pad.style.top = "0px";       // measurable position
+        var hit = $("#tpHit");
+        var pb = pad.getBoundingClientRect(), hb = hit.getBoundingClientRect();
+        var offX = (hb.left - pb.left) + hb.width / 2;
+        var offY = (hb.top - pb.top) + hb.height / 2;
+        var pw = pb.width || 360, ph = pb.height || 230;
+        var x = Math.max(8, Math.min(ev.clientX - offX, root.innerWidth - pw - 8));
+        var y = Math.max(8, Math.min(ev.clientY - offY, root.innerHeight - ph - 8));
+        pad.style.left = x + "px"; pad.style.top = y + "px";
+      }
     }
   }
-  $("#tpHit").addEventListener("click", function () {
+  function tpTap() {
     if (!TAPT) return;
     if (!TAPT.taps.length) TAPT.t10 = setTimeout(tapTempoFinish, 10000);
     TAPT.taps.push(performance.now());
@@ -421,6 +441,13 @@
     var b = tapBpm(TAPT.taps);
     $("#tpBpm").textContent = b ? String(Math.round(b)) : "…";
     $("#tpCount").textContent = TAPT.taps.length + " tap" + (TAPT.taps.length > 1 ? "s" : "");
+  }
+  $("#tpHit").addEventListener("click", tpTap);
+  // desktop: spacebar taps too while the pad is open
+  document.addEventListener("keydown", function (e) {
+    if (!TAPT) return;
+    if (e.code === "Space" || e.key === " ") { e.preventDefault(); tpTap(); }
+    else if (e.key === "Escape") { tapPadHide(); }
   });
   $("#tpDone").addEventListener("click", tapTempoFinish);
   $("#tpCancel").addEventListener("click", tapPadHide);
@@ -525,7 +552,15 @@
    *  TAB GRID EDITOR
    * ===================================================================== */
   var TAB = null; // { si, ri, events:[...] }
-  var SYM = { bar: "|", repopen: "|:", repclose: ":|", mark: "‡" };
+  var SYM = { bar: "|", repopen: "|:", repclose: ":|", mark: "‡", nl: "↵" };
+  // polyphony helpers: a column is one note ["E",6] or a stack
+  // ["chord",[["E",6],["A",5]]] — normalize both to a list of pairs
+  function colPairs(e) { return e[0] === "chord" ? (e[1] || []) : [[e[0], e[1]]]; }
+  function makeColEvent(pairs) {
+    return pairs.length === 1 ? [pairs[0][0], pairs[0][1]]
+      : ["chord", pairs.map(function (p) { return [p[0], p[1]]; })];
+  }
+  function isNoteCol(e) { return e[0] !== "bar" && e[0] !== "repopen" && e[0] !== "repclose" && e[0] !== "mark" && e[0] !== "nl"; }
 
   function openTabEditor(si, ri) {
     var r = STATE.songs[si].riffs[ri];
@@ -542,7 +577,8 @@
     // header tools row
     var head = '<tr class="colhead"><td class="slabel"></td>';
     ev.forEach(function (e, i) {
-      head += '<td><div class="coltools">' +
+      head += '<td data-hcol="' + i + '"><div class="coltools">' +
+        '<div class="coldrag" draggable="true" data-coldrag="' + i + '" title="Drag to move this column">⠿</div>' +
         '<button data-tg="left" data-col="' + i + '" title="←">←</button>' +
         '<button data-tg="del" data-col="' + i + '" title="suppr">✕</button>' +
         '<button data-tg="right" data-col="' + i + '" title="→">→</button>' +
@@ -552,7 +588,7 @@
 
     var rows = strings.map(function (str, sIdx) {
       var cells = ev.map(function (e, i) {
-        if (e[0] === "bar" || e[0] === "repopen" || e[0] === "repclose" || e[0] === "mark") {
+        if (e[0] === "bar" || e[0] === "repopen" || e[0] === "repclose" || e[0] === "mark" || e[0] === "nl") {
           // symbol spans visually; show on middle row only, blank elsewhere
           if (sIdx === 0) {
             var label = SYM[e[0]] + (e[0] === "repclose" && e[1] ? "×" + e[1] : "");
@@ -560,9 +596,10 @@
           }
           return ""; // covered by rowspan
         }
-        var isHere = (e[0] === str);
-        var txt = isHere ? esc(String(e[1])) : "·";
-        return '<td><button class="cellbtn ' + (isHere ? "set" : "") + '" data-tg="note" data-col="' + i + '" data-str="' + str + '">' + txt + "</button></td>";
+        var mine = null;
+        colPairs(e).forEach(function (p) { if (p[0] === str) mine = p; });
+        var txt = mine ? esc(String(mine[1])) : "·";
+        return '<td><button class="cellbtn ' + (mine ? "set" : "") + '" data-tg="note" data-col="' + i + '" data-str="' + str + '" title="' + (mine ? "Edit (empty = remove)" : "Add a note here — same time as the others in this column") + '">' + txt + "</button></td>";
       }).join("");
       var addCell = '<td><button class="cellbtn" data-tg="add" data-str="' + str + '">＋</button></td>';
       return '<tr><td class="slabel">' + str + "</td>" + cells + addCell + "</tr>";
@@ -585,11 +622,22 @@
       var f = promptFret("0"); if (f === null || f === "") return;
       ev.push([str, isNaN(+f) ? f : +f]);
     } else if (act === "note") {
-      var cur = (ev[col][0] === str) ? ev[col][1] : null;
-      var nf = promptFret(cur);
+      if (!isNoteCol(ev[col])) return;
+      var pairs = colPairs(ev[col]).slice();
+      var mineK = -1;
+      pairs.forEach(function (p, k) { if (p[0] === str) mineK = k; });
+      var nf = promptFret(mineK >= 0 ? pairs[mineK][1] : null);
       if (nf === null) return;
-      if (nf === "") ev.splice(col, 1);
-      else ev[col] = [str, isNaN(+nf) ? nf : +nf];
+      if (nf === "") {                       // remove THIS string's note only
+        if (mineK >= 0) pairs.splice(mineK, 1);
+        if (!pairs.length) ev.splice(col, 1); // column empty -> drop it
+        else ev[col] = makeColEvent(pairs);
+      } else {
+        var val = isNaN(+nf) ? nf : +nf;
+        if (mineK >= 0) pairs[mineK] = [str, val];
+        else pairs.push([str, val]);          // stack onto the column = chord
+        ev[col] = makeColEvent(pairs);
+      }
     } else if (act === "del") { ev.splice(col, 1); }
     else if (act === "left") { if (col > 0) { var t = ev[col - 1]; ev[col - 1] = ev[col]; ev[col] = t; } }
     else if (act === "right") { if (col < ev.length - 1) { var t2 = ev[col + 1]; ev[col + 1] = ev[col]; ev[col] = t2; } }
@@ -603,6 +651,46 @@
     }
     drawGrid();
   });
+
+  /* ---- drag & drop: move a column by its ⠿ grip (desktop) ---- */
+  var TDRAG = null; // { from, to, before }
+  function tdropClear() {
+    $$("#tabGrid .tdrop-l,#tabGrid .tdrop-r").forEach(function (n) {
+      n.classList.remove("tdrop-l", "tdrop-r");
+    });
+  }
+  $("#tabGrid").addEventListener("dragstart", function (e) {
+    var g = e.target.closest && e.target.closest("[data-coldrag]");
+    if (!g || !TAB) return;
+    TDRAG = { from: +g.getAttribute("data-coldrag"), to: null, before: true };
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", "col"); } catch (_) {}
+    }
+  });
+  $("#tabGrid").addEventListener("dragover", function (e) {
+    if (!TDRAG) return;
+    var c = e.target.closest && e.target.closest("[data-col],[data-hcol]");
+    if (!c) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    var col = +(c.getAttribute("data-col") != null ? c.getAttribute("data-col") : c.getAttribute("data-hcol"));
+    var r = c.getBoundingClientRect ? c.getBoundingClientRect() : null;
+    TDRAG.to = col;
+    TDRAG.before = r && r.width ? (e.clientX - r.left) < r.width / 2 : true;
+    tdropClear();
+    var hd = $('#tabGrid [data-hcol="' + col + '"]');
+    if (hd) hd.classList.add(TDRAG.before ? "tdrop-l" : "tdrop-r");
+  });
+  $("#tabGrid").addEventListener("drop", function (e) {
+    if (!TDRAG || !TAB) return;
+    e.preventDefault();
+    if (TDRAG.to != null && TDRAG.to !== TDRAG.from) {
+      moveInArray(TAB.events, TDRAG.from, TDRAG.before ? TDRAG.to : TDRAG.to + 1);
+    }
+    TDRAG = null; tdropClear(); drawGrid();
+  });
+  $("#tabGrid").addEventListener("dragend", function () { TDRAG = null; tdropClear(); });
 
   $$("#tabModal [data-sym]").forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -995,6 +1083,49 @@
     var p = e.target.closest(".pill[data-sec]"); if (!p) return;
     var i = stageSongIndex(); if (i < 0) return;
     openRehearsal(i, p.getAttribute("data-sec"));
+  });
+
+  /* =====================================================================
+   *  PREVIEW -> EDITOR deep link (edit mode): DOUBLE-click any read-only
+   *  content on the right and land in the matching field on the left —
+   *  chord row -> that chord input, pills -> structure, header -> title,
+   *  Breaks/Notes -> their inputs, a tab -> the tab grid editor.
+   * ===================================================================== */
+  $("#preview").addEventListener("dblclick", function (e) {
+    if (document.body.classList.contains("stage")) return;
+    var sheet = e.target.closest(".sheet.songsheet"); if (!sheet) return;
+    var si = $$("#preview .sheet.songsheet").indexOf(sheet); if (si < 0) return;
+    // tabs open the grid editor directly
+    var tabEl = e.target.closest("pre.tab, .tab-head");
+    if (tabEl) {
+      var myHead = tabEl.classList.contains("tab-head") ? tabEl
+        : (tabEl.previousElementSibling && tabEl.previousElementSibling.classList.contains("tab-head")
+           ? tabEl.previousElementSibling : null);
+      var ri = myHead ? $$(".tab-head", sheet).indexOf(myHead) : -1;
+      if (ri >= 0 && STATE.songs[si] && STATE.songs[si].riffs[ri]) { openTabEditor(si, ri); return; }
+    }
+    UI.openSong = si; renderEditor();
+    var card = $('[data-card="' + si + '"]');
+    if (card && card.scrollIntoView) card.scrollIntoView({ block: "start", behavior: "smooth" });
+    var focusEl = null;
+    var tr = e.target.closest(".chords tr");
+    if (tr) {
+      var ci = $$(".chords tr", sheet).indexOf(tr);
+      focusEl = $('input[data-song="' + si + '"][data-ci="' + ci + '"][data-part="value"]');
+    } else if (e.target.closest(".pills") || (e.target.classList && e.target.classList.contains("raw"))) {
+      focusEl = $('textarea[data-song="' + si + '"][data-field="structure"]');
+    } else if (e.target.closest(".songsheet-head")) {
+      focusEl = $('input[data-song="' + si + '"][data-field="title"]');
+    } else if (e.target.closest(".kv")) {
+      var kb = e.target.closest(".kv").querySelector("b");
+      var key = kb && kb.textContent === "Breaks" ? "breaks" : "notes";
+      focusEl = $('input[data-song="' + si + '"][data-field="' + key + '"]');
+    }
+    if (focusEl) {
+      focusEl.focus();
+      try { var L = focusEl.value.length; focusEl.setSelectionRange(L, L); } catch (_) {}
+      if (focusEl.scrollIntoView) focusEl.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
   });
 
   /* =====================================================================

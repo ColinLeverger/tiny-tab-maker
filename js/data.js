@@ -131,6 +131,18 @@
       else if (t === "repopen")   cols.push(boundary("|:"));
       else if (t === "repclose")  cols.push(boundary(":|"));
       else if (t === "mark")      cols.push(boundary(MARK));
+      else if (t === "chord") {               // several notes at the same time:
+        var pairs = e[1] || [];               //   ["chord", [["E",3],["A",5],...]]
+        var wmax = 1;
+        pairs.forEach(function (p) { wmax = Math.max(wmax, String(p[1]).length); });
+        var cc = col(wmax + 1);
+        pairs.forEach(function (p) {
+          var pidx = STR_INDEX[p[0]]; if (pidx == null) return;
+          var f = String(p[1]);
+          cc.cells[pidx] = "-" + f + new Array(wmax - f.length + 1).join("-");
+        });
+        cols.push(cc);
+      }
       else {                                  // a note [string, fret]
         var fret = String(e[1]);
         var c = col(fret.length + 1);         // leading dash + fret
@@ -148,12 +160,26 @@
     return (events.length && events[0][0] === "repopen") ? "|:" : "|";
   }
 
-  /* Render events -> array of blocks (each block = 6 lines), wrapped at maxw chars. */
+  /* Render events -> array of blocks (each block = 6 lines), wrapped at maxw chars.
+   * A ["nl"] event forces the wrap right there (manual line skip). */
   function renderTab(events, opts) {
     opts = opts || {};
     var maxw = opts.maxw || 72;
     var ascii = !!opts.ascii;
     if (!events || !events.length) return emptyGrid(opts.emptyCols || 8);
+
+    // manual line breaks: split on ["nl"], render each segment, stack blocks
+    var hasNl = events.some(function (e) { return e[0] === "nl"; });
+    if (hasNl) {
+      var segs = [], cur = [];
+      events.forEach(function (e) {
+        if (e[0] === "nl") { segs.push(cur); cur = []; } else cur.push(e);
+      });
+      segs.push(cur);
+      var out = [];
+      segs.forEach(function (sg) { if (sg.length) out = out.concat(renderTab(sg, opts)); });
+      return out.length ? out : emptyGrid(opts.emptyCols || 8);
+    }
 
     var cols = buildColumns(events.filter(function (e) {
       return e[0] !== "repopen" || true; // keep all; repopen handled as boundary too

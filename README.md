@@ -205,6 +205,8 @@ Strings (top→bottom): `e B G D A E`.
 | `["repopen"]` | repeat open | `\|:` |
 | `["repclose"]` / `["repclose",4]` | repeat close (+ count) | `:\|` (the ×4 goes in the note) |
 | `["mark"]` | point marker | `‡` |
+| `["nl"]` | forced line skip — wrap to a new block right here | (new 6-line block) |
+| `["chord", [["E",3],["A",5]]]` | several notes at the same time | stacked in one column |
 
 A riff with no `tab` (`null`/empty) prints a **blank 6×8 grid** to fill by hand.
 
