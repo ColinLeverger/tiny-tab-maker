@@ -6,7 +6,7 @@
  * wifi can be as bad as it wants.
  * Bump VERSION when shipping changes, old caches are swept on activate.
  * ===================================================================== */
-var VERSION = "ttm-v1";
+var VERSION = "ttm-v2";
 var SHELL = [
   "./",
   "index.html",

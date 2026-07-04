@@ -89,6 +89,14 @@ On top of it:
   There's also an **inline 🥁 next to each song's Tempo field** in the editor:
   tap the beat on the button itself (live estimate shown) — after 10 s or a
   2.5 s pause, `~<bpm> BPM` lands straight in the field (min 3 taps).
+- **🎤 Voice memos** (in the rehearsal sheet): record up to 5 min per take,
+  attached to the current section chip; ▶ playback rows, 🎤 badges on chips.
+  Stored **on-device in IndexedDB** — never in localStorage, the share URL or
+  any server — and **auto-deleted after 30 days** (`MEMO_TTL_DAYS` in app.js),
+  along with memos of deleted songs, so a phone never silts up. To move them:
+  *Data → Export incl. voice memos* (share sheet / AirDrop on iPhone, file
+  download elsewhere); importing that file rehydrates them. Recording holds a
+  screen wake-lock — a locked phone kills the mic.
 - **PWA / offline**: the app ships a manifest + service worker. Visit once
   online, then *Add to Home Screen* — it opens full-screen and works with **no
   network at all** (CDN libs get runtime-cached too). Bump `VERSION` in `sw.js`

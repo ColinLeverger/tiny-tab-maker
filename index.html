@@ -53,6 +53,7 @@
       <button data-act="import">📂 Import JSON…</button>
       <button data-act="export">💾 Export JSON</button>
       <button data-act="share">🔗 Copy share link (data in URL)</button>
+      <button data-act="export-memos">🎤 Export incl. voice memos…</button>
       <button data-act="demo">✨ Load demo</button>
       <button data-act="wipe">🗑 Clear all</button>
     </div>
@@ -136,6 +137,13 @@
       <button class="cbig none" data-c="">○ Clear</button>
     </div>
     <div class="bs-notes" id="rhNotes"></div>
+    <div class="bs-memos" id="rhMemoWrap">
+      <div class="bs-memo-bar">
+        <button class="btn" id="rhRec" title="Record a voice memo for this section (max 5 min, auto-deleted after 30 days)">🎤 Rec</button>
+        <span id="rhRecT" class="rec-t"></span>
+      </div>
+      <div id="rhMemos"></div>
+    </div>
     <div class="bs-push">
       <textarea id="rhNote" rows="2" placeholder="Note… (e.g. slower · start on D · add brass stab)"></textarea>
       <button class="btn" id="rhPush" title="Add this note and start a new one (Enter)">＋ Push</button>

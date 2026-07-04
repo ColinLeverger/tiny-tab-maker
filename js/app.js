@@ -664,6 +664,7 @@
       link.href = url; link.download = "songbook-data.json"; link.click();
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     } else if (a === "share") { copyShare(null); }
+    else if (a === "export-memos") { exportWithMemos(); }
     else if (a === "import") { $("#fileInput").click(); }
     else if (a === "demo") { if (confirm("Replace the current content with the demo?")) { pushHistory(); STATE = clone(FG.DEMO); UI.openSong = null; renderAll(); } }
     else if (a === "wipe") {
@@ -679,6 +680,10 @@
     rd.onload = function () {
       try {
         var data = JSON.parse(rd.result);
+        if (data && data.__ttm === 2 && data.state) {   // "with memos" export
+          importMemos(data.memos);
+          data = data.state;
+        }
         if (!data || !Array.isArray(data.songs)) throw new Error("invalid structure");
         if (!data.meta) data.meta = FG.emptyState().meta;
         pushHistory(); STATE = data; UI.openSong = null; renderAll();
@@ -812,10 +817,14 @@
     RH = { si: si, work: clone(s.rehearsal || {}), sec: sec || "__song", editK: null };
     $("#rhTitle").textContent = "🖍 " + (s.num ? s.num + " — " : "") + (s.title || "Song");
     $("#rhNote").value = "";
+    $("#rhMemoWrap").style.display = memoOK ? "" : "none";
     drawRh();
     $("#rhModal").classList.add("open");
   }
-  function closeRh() { $("#rhModal").classList.remove("open"); RH = null; }
+  function closeRh() {
+    recStop(); stopPlayback();
+    $("#rhModal").classList.remove("open"); RH = null;
+  }
   function rhSet(patch) {
     var e = RH.work[RH.sec] || (RH.work[RH.sec] = {});
     Object.keys(patch).forEach(function (k) { e[k] = patch[k]; });
@@ -838,6 +847,7 @@
     $$("#rhModal .cbig").forEach(function (b) {
       b.classList.toggle("on", (b.getAttribute("data-c") || "") === (cur.c || ""));
     });
+    if (memoOK) { stopPlayback(); $("#rhMemos").innerHTML = ""; drawMemos(); }
     // pushed notes for this target, one row each, deletable. The textarea is a
     // DRAFT: never overwritten here (a colour tap must not eat what's typed).
     var lines = (cur.note || "").split("\n").filter(Boolean);
@@ -934,6 +944,206 @@
     var i = stageSongIndex(); if (i < 0) return;
     openRehearsal(i, p.getAttribute("data-sec"));
   });
+
+  /* =====================================================================
+   *  VOICE MEMOS — per song+section, IndexedDB (audio is too big for
+   *  localStorage and WAY too big for the share URL). Auto-vanish after
+   *  MEMO_TTL_DAYS so a phone never silts up with old takes. Device-local;
+   *  they only travel via Data → "Export incl. voice memos" (file/AirDrop).
+   * ===================================================================== */
+  var MEMO_TTL_DAYS = 30;
+  var MEMO_MAX_MS = 5 * 60 * 1000;                 // forgotten-mic guard
+  var memoOK = typeof indexedDB !== "undefined" &&
+               typeof MediaRecorder !== "undefined" &&
+               !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  var MDB = null;
+  function mdb() {
+    return new Promise(function (res, rej) {
+      if (MDB) return res(MDB);
+      var r = indexedDB.open("ttm-memos", 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore("m", { keyPath: "id" }); };
+      r.onsuccess = function () { MDB = r.result; res(MDB); };
+      r.onerror = function () { rej(r.error); };
+    });
+  }
+  function mtx(mode, fn) {
+    return mdb().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction("m", mode), st = tx.objectStore("m");
+        var out = fn(st);
+        tx.oncomplete = function () { res(out && out.result !== undefined ? out.result : out); };
+        tx.onerror = function () { rej(tx.error); };
+      });
+    });
+  }
+  function mput(o) { return mtx("readwrite", function (st) { st.put(o); }); }
+  function mdel(id) { return mtx("readwrite", function (st) { st.delete(id); }); }
+  function mall() {
+    return mdb().then(function (db) {
+      return new Promise(function (res, rej) {
+        var r = db.transaction("m").objectStore("m").getAll();
+        r.onsuccess = function () { res(r.result || []); };
+        r.onerror = function () { rej(r.error); };
+      });
+    });
+  }
+  // TTL sweep + orphans (memos of deleted songs) — ran once at boot
+  function memoSweep() {
+    if (!memoOK) return;
+    var cut = Date.now() - MEMO_TTL_DAYS * 864e5;
+    var live = {}; STATE.songs.forEach(function (s) { if (s.id) live[s.id] = 1; });
+    mall().then(function (list) {
+      list.forEach(function (m) {
+        if (m.created < cut || !live[m.songId]) mdel(m.id);
+      });
+    }).catch(function () {});
+  }
+  function memoDaysLeft(m) {
+    return Math.max(0, Math.ceil((m.created + MEMO_TTL_DAYS * 864e5 - Date.now()) / 864e5));
+  }
+  function fmtDur(ms) {
+    var s = Math.round(ms / 1000);
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }
+
+  /* ---- recording ---- */
+  var REC = null;   // { mr, stream, t0, timer }
+  var PLAYING = null; // { id, audio, url }
+  function recStopUI() {
+    var b = $("#rhRec"); if (b) { b.textContent = "🎤 Rec"; b.classList.remove("danger"); }
+    var t = $("#rhRecT"); if (t) t.textContent = "";
+  }
+  function recStop() { if (REC && REC.mr.state !== "inactive") REC.mr.stop(); }
+  function recStart() {
+    if (!RH) return;
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      if (!RH) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+      var chunks = [], mr = new MediaRecorder(stream);
+      var song = STATE.songs[RH.si], sec = RH.sec;
+      REC = { mr: mr, stream: stream, t0: Date.now(), timer: null };
+      mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      mr.onstop = function () {
+        clearInterval(REC.timer);
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        var dur = Date.now() - REC.t0;
+        REC = null; recStopUI();
+        if (!chunks.length || dur < 400) return;
+        var blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
+        mput({ id: uid(), songId: song.id, sec: sec, blob: blob, mime: blob.type,
+               dur: dur, size: blob.size, created: Date.now() })
+          .then(drawMemos).catch(function () { setStatus("⚠︎ memo save failed", true); });
+      };
+      mr.start();
+      var b = $("#rhRec"); if (b) { b.textContent = "■ Stop"; b.classList.add("danger"); }
+      REC.timer = setInterval(function () {
+        if (!REC) return;
+        var el = Date.now() - REC.t0;
+        var t = $("#rhRecT"); if (t) t.textContent = "● " + fmtDur(el);
+        if (el >= MEMO_MAX_MS) recStop();
+      }, 250);
+      // screen lock kills the mic on phones — hold a wake lock while recording
+      if (navigator.wakeLock) navigator.wakeLock.request("screen").catch(function () {});
+    }).catch(function () { alert("Microphone unavailable or permission denied."); });
+  }
+  $("#rhRec").addEventListener("click", function () { REC ? recStop() : recStart(); });
+
+  /* ---- playback + memo rows (for the section currently targeted) ---- */
+  function stopPlayback() {
+    if (!PLAYING) return;
+    PLAYING.audio.pause();
+    URL.revokeObjectURL(PLAYING.url);
+    PLAYING = null;
+    $$("#rhMemos [data-mid]").forEach(function (b) { b.textContent = "▶"; });
+  }
+  function drawMemos() {
+    if (!memoOK || !RH) return;
+    var song = STATE.songs[RH.si], sec = RH.sec;
+    mall().then(function (list) {
+      if (!RH || STATE.songs[RH.si] !== song || RH.sec !== sec) return; // stale
+      var mine = list.filter(function (m) { return m.songId === song.id && m.sec === sec; })
+                     .sort(function (a, b) { return a.created - b.created; });
+      $("#rhMemos").innerHTML = mine.map(function (m) {
+        return '<div class="memo-row">' +
+          '<button class="btn sm" data-mid="' + m.id + '">▶</button>' +
+          '<span class="m-meta">' + fmtDur(m.dur) + " · " + Math.round(m.size / 1024) + " KB · " +
+            memoDaysLeft(m) + "d left</span>" +
+          '<button class="btn sm danger" data-mdel="' + m.id + '">✕</button></div>';
+      }).join("");
+      // 🎤 badge on chips that have memos
+      var bySec = {};
+      list.forEach(function (m) { if (m.songId === song.id) bySec[m.sec] = (bySec[m.sec] || 0) + 1; });
+      $$("#rhChips .chip").forEach(function (c) {
+        var n = bySec[c.getAttribute("data-sec")];
+        if (n && !c.querySelector(".mbadge")) {
+          var sp = document.createElement("span");
+          sp.className = "mbadge"; sp.textContent = " 🎤" + n;
+          c.appendChild(sp);
+        }
+      });
+    }).catch(function () {});
+  }
+  $("#rhMemos").addEventListener("click", function (e) {
+    var del = e.target.closest("[data-mdel]");
+    if (del) { stopPlayback(); mdel(del.getAttribute("data-mdel")).then(drawMemos); return; }
+    var pb = e.target.closest("[data-mid]"); if (!pb) return;
+    var id = pb.getAttribute("data-mid");
+    if (PLAYING && PLAYING.id === id) { stopPlayback(); return; }
+    stopPlayback();
+    mall().then(function (list) {
+      var m = list.filter(function (x) { return x.id === id; })[0]; if (!m) return;
+      var url = URL.createObjectURL(m.blob), a = new Audio(url);
+      PLAYING = { id: id, audio: a, url: url };
+      pb.textContent = "⏸";
+      a.onended = stopPlayback;
+      a.play().catch(stopPlayback);
+    });
+  });
+
+  /* ---- export / import with memos (file path — NOT the share URL) ---- */
+  function blobToDataURL(b) {
+    return new Promise(function (res, rej) {
+      var r = new FileReader();
+      r.onload = function () { res(r.result); };
+      r.onerror = rej;
+      r.readAsDataURL(b);
+    });
+  }
+  function exportWithMemos() {
+    var base = memoOK ? mall() : Promise.resolve([]);
+    base.then(function (list) {
+      return Promise.all(list.map(function (m) {
+        return blobToDataURL(m.blob).then(function (d) {
+          return { id: m.id, songId: m.songId, sec: m.sec, mime: m.mime,
+                   dur: m.dur, size: m.size, created: m.created, data: d };
+        });
+      }));
+    }).then(function (memos) {
+      var payload = JSON.stringify({ __ttm: 2, state: STATE, memos: memos });
+      var blob = new Blob([payload], { type: "application/json" });
+      var file = new File([blob], "songbook-with-memos.json", { type: "application/json" });
+      var mb = Math.round(blob.size / 104857.6) / 10;
+      // iPhone: straight to the share sheet (AirDrop); elsewhere: download
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: "Songbook + memos" }).catch(function () {});
+      } else {
+        var url = URL.createObjectURL(blob), a = document.createElement("a");
+        a.href = url; a.download = "songbook-with-memos.json"; a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      }
+      setStatus("✓ Export with memos (" + mb + " MB)");
+    }).catch(function () { setStatus("⚠︎ memo export failed", true); });
+  }
+  function importMemos(memos) {
+    if (!memoOK || !Array.isArray(memos)) return;
+    memos.forEach(function (m) {
+      if (!m || !m.data) return;
+      fetch(m.data).then(function (r) { return r.blob(); }).then(function (blob) {
+        mput({ id: m.id || uid(), songId: m.songId, sec: m.sec, blob: blob,
+               mime: m.mime || blob.type, dur: m.dur || 0, size: blob.size,
+               created: m.created || Date.now() });
+      }).catch(function () {});
+    });
+  }
 
   /* =====================================================================
    *  SETLIST OVERLAY — jump / reorder (big ▲▼, no drag) / share.
@@ -1191,6 +1401,7 @@
   renderAll();
   if (!STORAGE_OK) setStatus("⚠︎ browser storage unavailable — use Export", true);
   else if (RESTORED) setStatus("✓ Restored from browser");
+  memoSweep();     // vanish memos past their TTL (and those of deleted songs)
   // link carried a song index -> open stage view on it (after the debounced render)
   if (PENDING_STAGE_SONG != null) {
     setTimeout(function () {
