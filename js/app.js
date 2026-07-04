@@ -17,7 +17,30 @@
 
   var RESTORED = false;
   var STATE = load();
-  var UI = { bw: false, compact: false, chordPt: 12, openSong: null };
+  var UI = { bw: false, compact: false, chordPt: 18, openSong: null };
+
+  // ---- auto "last updated": stamp today on the first change of the session ----
+  var DATE_TOUCHED = false;
+  function touchUpdated() {
+    if (DATE_TOUCHED) return;
+    DATE_TOUCHED = true;
+    STATE.meta.updated = FG.todayISO();
+    var mi = $('#metaCard [data-meta="updated"]'); if (mi) mi.value = STATE.meta.updated;
+  }
+  // ---- auto-numbering: renumber songs 1..n top-to-bottom when enabled ----
+  function applyAutoNumber() {
+    if (!STATE.autoNumber) return;
+    STATE.songs.forEach(function (s, i) { s.num = String(i + 1).padStart(2, "0"); });
+  }
+  // move arr[from] so it sits at `insert` (index in the pre-removal array)
+  function moveInArray(arr, from, insert) {
+    if (from < 0 || from >= arr.length) return insert;
+    var it = arr.splice(from, 1)[0];
+    if (insert > from) insert--;
+    insert = Math.max(0, Math.min(arr.length, insert));
+    arr.splice(insert, 0, it);
+    return insert;
+  }
 
   // is localStorage usable at all? (some browsers block it on file://)
   var STORAGE_OK = (function () {
@@ -53,8 +76,19 @@
       var pv = $("#preview");
       pv.className = UI.compact ? "compact" : "";
       pv.style.setProperty("--fs", UI.chordPt + "pt");
-      pv.innerHTML = FG.renderPreview(STATE, { bw: UI.bw, chordPt: UI.chordPt, compact: UI.compact });
-    }, 120);
+      var opts = { bw: UI.bw, chordPt: UI.chordPt, compact: UI.compact };
+      // mirror the real PDF pagination (page count + compact grouping)
+      var pg = (FG.paginate && STATE.songs.length && STATE.songs.length <= 60)
+        ? FG.paginate(STATE, opts) : null;
+      pv.innerHTML = FG.renderPreview(STATE, opts, pg && pg.songPage);
+      updatePageCount(pg);
+    }, 160);
+  }
+  function updatePageCount(pg) {
+    var el = $("#pageCount"); if (!el) return;
+    if (pg && pg.pages) el.textContent = "PDF: " + pg.pages + (pg.pages > 1 ? " pages" : " page");
+    else if (STATE.songs.length > 60) el.textContent = "PDF: many pages";
+    else el.textContent = "";
   }
 
   /* ---------------- editor: meta ---------------- */
@@ -69,6 +103,7 @@
     var open = UI.openSong === i;
     var chordRows = (s.chords || []).map(function (c, ci) {
       return '<div class="pair">' +
+        '<span class="grip" draggable="true" data-drag="chord" data-song="' + i + '" data-ci="' + ci + '" title="Drag to reorder">⠿</span>' +
         '<input data-song="' + i + '" data-ci="' + ci + '" data-part="label" value="' + esc(c.label) + '" placeholder="Section">' +
         '<input data-song="' + i + '" data-ci="' + ci + '" data-part="value" value="' + esc(c.value) + '" placeholder="Chords / text">' +
         '<button class="btn sm danger" data-act="delChord" data-song="' + i + '" data-ci="' + ci + '">✕</button>' +
@@ -87,7 +122,8 @@
     }).join("");
 
     return '<div class="song-card' + (open ? " open" : "") + '" data-card="' + i + '">' +
-      '<div class="sc-head" data-toggle="' + i + '">' +
+      '<div class="sc-head" data-toggle="' + i + '" data-drag="song" data-song="' + i + '" draggable="true" title="Drag the bar to reorder">' +
+        '<span class="grip" aria-hidden="true">⠿</span>' +
         '<span class="num">' + esc(s.num) + "</span>" +
         '<span class="ttl">' + esc(s.title || "(untitled)") + "</span>" +
         '<button class="btn sm" data-act="up" data-song="' + i + '" title="Up">▲</button>' +
@@ -96,7 +132,7 @@
       "</div>" +
       '<div class="sc-body">' +
         '<div class="grid2">' +
-          '<div class="row"><label>No.</label><input data-song="' + i + '" data-field="num" value="' + esc(s.num) + '"></div>' +
+          '<div class="row"><label>No.' + (STATE.autoNumber ? " (auto)" : "") + '</label><input data-song="' + i + '" data-field="num" value="' + esc(s.num) + '"' + (STATE.autoNumber ? ' readonly title="Auto-numbered — turn off Auto-№ to edit"' : "") + "></div>" +
           '<div class="row"><label>Group / album</label><input data-song="' + i + '" data-field="group" value="' + esc(s.group) + '"></div>' +
         "</div>" +
         '<div class="row"><label>Title</label><input data-song="' + i + '" data-field="title" value="' + esc(s.title) + '"></div>' +
@@ -130,18 +166,22 @@
     host.innerHTML = STATE.songs.map(songCard).join("");
   }
 
-  function renderAll() { renderEditor(); updatePreview(); persist(); }
+  function renderAll() { applyAutoNumber(); renderEditor(); updatePreview(); persist(); }
 
   /* ---------------- editor events ---------------- */
   // text inputs: mutate in place, do NOT rebuild editor (keep focus)
   document.addEventListener("input", function (e) {
     var t = e.target;
     if (t.hasAttribute && t.hasAttribute("data-meta")) {
-      STATE.meta[t.getAttribute("data-meta")] = t.value; updatePreview(); persist(); return;
+      var mk = t.getAttribute("data-meta");
+      // editing the date by hand is an explicit override; don't auto-stamp over it
+      if (mk === "updated") DATE_TOUCHED = true; else touchUpdated();
+      STATE.meta[mk] = t.value; updatePreview(); persist(); return;
     }
     var si = t.getAttribute && t.getAttribute("data-song");
     if (si == null) return;
     si = +si; var s = STATE.songs[si]; if (!s) return;
+    touchUpdated();
     if (t.hasAttribute("data-field")) { s[t.getAttribute("data-field")] = t.value; }
     else if (t.hasAttribute("data-ci")) {
       var ci = +t.getAttribute("data-ci"); s.chords[ci][t.getAttribute("data-part")] = t.value;
@@ -158,6 +198,7 @@
     if (tog != null) { UI.openSong = (UI.openSong === +tog) ? null : +tog; renderEditor(); return; }
     var act = btn.getAttribute("data-act");
     var si = +btn.getAttribute("data-song"); var s = STATE.songs[si];
+    if (act !== "editTab") touchUpdated();            // any structural edit stamps the date
     if (act === "up" || act === "down") {
       e.stopPropagation();
       var j = act === "up" ? si - 1 : si + 1;
@@ -176,8 +217,85 @@
 
   $("#addSong").addEventListener("click", function () {
     var n = String(STATE.songs.length + 1).padStart(2, "0");
-    STATE.songs.push(FG.emptySong(n)); UI.openSong = STATE.songs.length - 1; renderAll();
+    STATE.songs.push(FG.emptySong(n)); UI.openSong = STATE.songs.length - 1;
+    touchUpdated(); renderAll();
   });
+
+  /* =====================================================================
+   *  DRAG & DROP  — reorder songs (by header grip) and chord sections
+   *  (by row grip). HTML5 DnD, delegated on the editor list.
+   * ===================================================================== */
+  var listEl = $("#editor-list");
+  var DRAG = null;
+  function clearDropMarks() {
+    $$(".drop-before,.drop-after", listEl).forEach(function (n) {
+      n.classList.remove("drop-before", "drop-after");
+    });
+  }
+  function cleanupDrag() {
+    $$(".dragging", listEl).forEach(function (n) { n.classList.remove("dragging"); });
+    clearDropMarks(); DRAG = null;
+  }
+  function isBefore(e, el) {
+    var r = el.getBoundingClientRect();
+    return (e.clientY - r.top) < r.height / 2;
+  }
+  listEl.addEventListener("dragstart", function (e) {
+    // songs drag from the whole header bar; chord sections drag from their grip
+    var d = e.target.closest && e.target.closest("[data-drag]");
+    if (!d) { return; }
+    DRAG = {
+      type: d.getAttribute("data-drag"),
+      song: +d.getAttribute("data-song"),
+      ci: d.hasAttribute("data-ci") ? +d.getAttribute("data-ci") : null
+    };
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", DRAG.type); } catch (_) {}
+    }
+    var src = d.closest(DRAG.type === "song" ? "[data-card]" : ".pair");
+    if (src) src.classList.add("dragging");
+  });
+  listEl.addEventListener("dragover", function (e) {
+    if (!DRAG) return;
+    var tgt = DRAG.type === "song" ? e.target.closest("[data-card]")
+                                   : e.target.closest(".pair");
+    if (!tgt) return;
+    if (DRAG.type === "chord") {                       // chords only reorder within their song
+      var tg = tgt.querySelector(".grip[data-drag=chord]");
+      if (!tg || +tg.getAttribute("data-song") !== DRAG.song) return;
+    }
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    clearDropMarks();
+    tgt.classList.add(isBefore(e, tgt) ? "drop-before" : "drop-after");
+  });
+  listEl.addEventListener("drop", function (e) {
+    if (!DRAG) return;
+    var type = DRAG.type;
+    var tgt = type === "song" ? e.target.closest("[data-card]")
+                              : e.target.closest(".pair");
+    if (tgt) {
+      e.preventDefault();
+      var before = isBefore(e, tgt);
+      if (type === "song") {
+        var to = +tgt.getAttribute("data-card");
+        var openObj = UI.openSong != null ? STATE.songs[UI.openSong] : null;
+        moveInArray(STATE.songs, DRAG.song, before ? to : to + 1);
+        UI.openSong = openObj ? STATE.songs.indexOf(openObj) : null;
+        touchUpdated(); cleanupDrag(); renderAll(); return;
+      }
+      var tg = tgt.querySelector(".grip[data-drag=chord]");
+      var s = STATE.songs[DRAG.song];
+      if (s && tg && DRAG.ci != null) {
+        var toc = +tg.getAttribute("data-ci");
+        moveInArray(s.chords, DRAG.ci, before ? toc : toc + 1);
+        touchUpdated(); cleanupDrag(); renderAll(); return;
+      }
+    }
+    cleanupDrag();
+  });
+  listEl.addEventListener("dragend", cleanupDrag);
 
   // meta card toggle
   $("#metaCard .sc-head").addEventListener("click", function () { $("#metaCard").classList.toggle("open"); });
@@ -280,7 +398,7 @@
     if (!TAB) return;
     var r = STATE.songs[TAB.si].riffs[TAB.ri];
     r.tab = TAB.events.length ? clone(TAB.events) : null;
-    closeTab(); renderAll();
+    touchUpdated(); closeTab(); renderAll();
   });
 
   /* =====================================================================
@@ -289,6 +407,34 @@
   $("#chordPt").addEventListener("input", function () { UI.chordPt = +this.value || 12; updatePreview(); });
   $("#bwToggle").addEventListener("change", function () { UI.bw = this.checked; updatePreview(); });
   $("#compactToggle").addEventListener("change", function () { UI.compact = this.checked; updatePreview(); });
+  $("#autoNumToggle").addEventListener("change", function () {
+    STATE.autoNumber = this.checked; touchUpdated(); renderAll();
+  });
+
+  /* ---------------- resizable editor pane ---------------- */
+  (function () {
+    var rz = $("#resizer"), layout = $(".layout"); if (!rz || !layout) return;
+    var LS_W = "fg_editor_w";
+    try { var w = localStorage.getItem(LS_W); if (w) layout.style.setProperty("--editorW", w); } catch (e) {}
+    var dragging = false;
+    rz.addEventListener("pointerdown", function (e) {
+      dragging = true; try { rz.setPointerCapture(e.pointerId); } catch (_) {}
+      document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none";
+    });
+    window.addEventListener("pointermove", function (e) {
+      if (!dragging) return;
+      var rect = layout.getBoundingClientRect();
+      var w = e.clientX - rect.left;
+      var max = Math.min(rect.width - 340, 1000);
+      w = Math.max(300, Math.min(max, w));
+      layout.style.setProperty("--editorW", w + "px");
+    });
+    window.addEventListener("pointerup", function () {
+      if (!dragging) return; dragging = false;
+      document.body.style.cursor = ""; document.body.style.userSelect = "";
+      try { localStorage.setItem(LS_W, layout.style.getPropertyValue("--editorW")); } catch (e) {}
+    });
+  })();
 
   function toggleMenu(id) { $$(".menu-pop").forEach(function (m) { if (m.id !== id) m.classList.remove("open"); }); $("#" + id).classList.toggle("open"); }
   $("#genBtn").addEventListener("click", function (e) { e.stopPropagation(); toggleMenu("genMenu"); });
@@ -337,6 +483,7 @@
 
   /* ---------------- boot ---------------- */
   $("#chordPt").value = UI.chordPt;
+  $("#autoNumToggle").checked = !!STATE.autoNumber;
   renderAll();
   if (!STORAGE_OK) setStatus("⚠︎ browser storage unavailable — use Export", true);
   else if (RESTORED) setStatus("✓ Restored from browser");

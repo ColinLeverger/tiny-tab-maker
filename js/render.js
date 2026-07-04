@@ -65,8 +65,13 @@
   }
 
   /* ---- one tab block ------------------------------------------------ */
-  // wrap width shrinks as the font grows so a tab always fits the sheet
-  function tabMaxW(chordPt) { return Math.max(20, Math.floor(860 / (chordPt || 12))); }
+  // Mirror the vector PDF exactly so the on-screen tab matches the printed one:
+  // tabs render at 0.7×chordPt (see CSS) in Courier (char width = 0.6×pt), on an
+  // A4 sheet whose usable width is 595.28 - 2×38 ≈ 519.28 pt.
+  function tabMaxW(chordPt) {
+    var tabPt = (+chordPt || 12) * 0.7;
+    return Math.max(24, Math.floor(519.28 / (0.6 * tabPt)) - 1);
+  }
   function tabHtml(riff, chordPt) {
     var blocks = FG.renderTab(riff.tab, { ascii: false, maxw: tabMaxW(chordPt) });
     var count = FG.repeatCount(riff.tab);
@@ -124,12 +129,30 @@
   }
 
   /* ---- whole document ----------------------------------------------- */
-  function renderPreview(state, opts) {
+  // songPage (optional) = array mapping each song index -> the PDF page it lands
+  // on. In compact mode we use it to visually group songs exactly as the PDF
+  // pages them (several song sheets per "page" card).
+  function renderPreview(state, opts, songPage) {
     opts = opts || {};
     var bw = !!opts.bw;
     var chordPt = +opts.chordPt || 12;
+    var compact = !!opts.compact;
     var html = cover(state, bw);
-    state.songs.forEach(function (s) { html += songsheet(s, bw, chordPt); });
+
+    if (compact && songPage && songPage.length === state.songs.length) {
+      var i = 0;
+      while (i < state.songs.length) {
+        var pg = songPage[i], j = i, inner = "";
+        while (j < state.songs.length && songPage[j] === pg) {
+          inner += songsheet(state.songs[j], bw, chordPt); j++;
+        }
+        html += '<div class="pagegroup"><div class="pagelabel">Page ' + pg +
+          "</div>" + inner + "</div>";
+        i = j;
+      }
+    } else {
+      state.songs.forEach(function (s) { html += songsheet(s, bw, chordPt); });
+    }
     return html;
   }
 

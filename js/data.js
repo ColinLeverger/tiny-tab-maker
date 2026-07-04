@@ -225,6 +225,7 @@
         notation: "Notation: chords EN / flats only (Ab Bb Db Eb Gb)",
         updated: todayISO()
       },
+      autoNumber: false,
       songs: []
     };
   }

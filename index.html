@@ -14,14 +14,18 @@
   <div class="spacer"></div>
 
   <label class="field" title="Text size of chords AND tabs (pt)">Size
-    <input type="number" id="chordPt" min="8" max="22" step="1" value="12">
+    <input type="number" id="chordPt" min="8" max="22" step="1" value="18">
   </label>
   <label class="field" title="Several songs per page (instead of one per page)">
     <input type="checkbox" id="compactToggle"> Compact
   </label>
+  <label class="field" title="Automatically number songs 1..n from top to bottom">
+    <input type="checkbox" id="autoNumToggle"> Auto-№
+  </label>
   <label class="field" title="Grayscale preview (for B&amp;W printing)">
     <input type="checkbox" id="bwToggle"> B&amp;W
   </label>
+  <span id="pageCount" class="pagecount" title="Pages in the generated PDF (current settings)"></span>
   <span id="saveStatus" class="savestat" title="Your data stays in this browser, even after closing"></span>
 
   <div class="menu">
@@ -64,6 +68,9 @@
     <div id="editor-list"></div>
     <button class="btn" id="addSong" style="width:100%;margin-top:.4rem">＋ Add a song</button>
   </aside>
+
+  <!-- ===== RESIZER ===== -->
+  <div class="resizer" id="resizer" title="Drag to resize the editor"></div>
 
   <!-- ===== PREVIEW ===== -->
   <main class="preview-wrap">

@@ -9,24 +9,35 @@
   "use strict";
   var FG = root.FG;
 
-  function asciiFold(s) {
-    return String(s == null ? "" : s)
+  // Fold known unicode to WinAnsi-safe ASCII, strip emoji / pictographs, then
+  // drop anything left outside Latin-1 so jsPDF's standard fonts never break.
+  function pdfSafe(s) {
+    s = String(s == null ? "" : s)
       .replace(/∥|‖/g, "||").replace(/→/g, "->").replace(/↔/g, "<->")
       .replace(/↓/g, "v").replace(/↑/g, "^").replace(/‡/g, "*")
       .replace(/×/g, "x").replace(/—|–/g, "-").replace(/…/g, "...")
-      .replace(/[’‘]/g, "'").replace(/[“”]/g, '"');
+      .replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/›/g, ">").replace(/•/g, "-");
+    // strip emoji, pictographs, flags, variation selectors, ZWJ, keycaps
+    s = s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}]/gu, "");
+    // final guard: anything still outside Latin-1 would break WinAnsi encoding
+    return s.replace(/[^\x00-\xFF]/g, "");
   }
+  var asciiFold = pdfSafe; // keep existing call sites working
   function rgbFill(cat, bw) { return FG.hexRgb(bw ? FG.grayHex(cat.gray) : cat.fill); }
   function rgbInk(cat, bw) { return FG.hexRgb(bw ? FG.inkOnGray(cat.gray) : cat.ink); }
 
-  function generatePdf(state, opts) {
+  // Build the whole document. Returns { doc, pages, songPage } WITHOUT saving,
+  // so it can be reused both to download the PDF and to count/attribute pages
+  // for the live UI (page count + compact grouping in the preview).
+  function buildPdf(state, opts) {
     opts = opts || {};
     var bw = !!opts.bw;
     var compact = !!opts.compact;
     var chordPt = +opts.chordPt || 12;
     var tabPt = chordPt * 0.7;            // tabs render at the chord-value size
     var jsPDF = (root.jspdf || {}).jsPDF;
-    if (!jsPDF) { alert("jsPDF is not loaded (offline?)."); return; }
+    if (!jsPDF) throw new Error("jsPDF is not loaded (offline?).");
+    var songPage = [];                    // songPage[i] = 1-based PDF page of song i
 
     var doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
     var PW = doc.internal.pageSize.getWidth();
@@ -166,6 +177,8 @@
         doc.line(M, y, M + W, y); y += 11;
       }
 
+      songPage[idx] = doc.internal.getNumberOfPages(); // page this song sheet lands on
+
       // header band
       doc.setFillColor(HEAD[0], HEAD[1], HEAD[2]);
       doc.roundedRect(M, y, W, 20, 4, 4, "F");
@@ -267,11 +280,31 @@
       doc.text("p. " + p, PW - M - doc.getTextWidth("p. " + p), PH - 24);
     }
 
-    var bandName = state.meta.band || "tabs";
+    return { doc: doc, pages: doc.internal.getNumberOfPages(), songPage: songPage };
+  }
+
+  function pdfName(state, bw) {
+    var bandName = (state.meta && state.meta.band) || "tabs";
     var slug = bandName.normalize("NFD").replace(/[̀-ͯ]/g, "")
       .replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "tabs";
-    doc.save("tabs-" + slug + (bw ? "-bw" : "-color") + ".pdf");
+    return "tabs-" + slug + (bw ? "-bw" : "-color") + ".pdf";
+  }
+
+  // one-click download
+  function generatePdf(state, opts) {
+    opts = opts || {};
+    try {
+      var r = buildPdf(state, opts);
+      r.doc.save(pdfName(state, !!opts.bw));
+    } catch (e) { alert("PDF generation failed: " + e.message); }
+  }
+
+  // no-download variant: returns { pages, songPage } for the live UI, or null.
+  function paginate(state, opts) {
+    try { var r = buildPdf(state, opts); return { pages: r.pages, songPage: r.songPage }; }
+    catch (e) { return null; }
   }
 
   FG.generatePdf = generatePdf;
+  FG.paginate = paginate;
 })(typeof window !== "undefined" ? window : globalThis);
