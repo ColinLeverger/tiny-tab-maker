@@ -58,6 +58,25 @@ The **B&W** checkbox switches the preview (and colour→B&W PDF) to grayscale fo
 printers with no colour. **Compact** packs several songs per page (and never
 splits a song across two pages). **Size** sets the chord + tab text size.
 
+## Rehearsal mode (phone / tablet)
+
+The **⛶ View** button gives a full-screen, one-song-per-screen reading view.
+On top of it:
+
+- **Tap a section pill** (or the **🖍** button for the whole song) → a bottom
+  sheet opens: mark the section **red** (needs work) / **yellow** (so-so) and/or
+  type a quick note. Chips at the top retarget to any other section. Marks show
+  as dots on the pills and in a "Rehearsal" block on the sheet — **on screen
+  only, never printed** (they're your scribbles, not the band's booklet). They
+  are editable/deletable from the song card in the editor too.
+- **☰** opens the setlist: tap a song to jump to it, big **▲▼** to reorder the
+  set on the spot (plays nice with Auto-№).
+- **🔗 Share** (in ☰, or Data → *Copy share link*) puts the **whole songbook,
+  compressed, in the URL fragment** (`#d=…`, lz-string). Open that link in any
+  browser/device and it offers to import — no backend, and the fragment never
+  reaches the server. A link shared from View mode also carries `&s=<n>` so it
+  opens straight on that song. Typical size: a 30-song book ≈ 8 KB of URL.
+
 ## Deploy to GitHub Pages
 
 **Option A — Pages from a branch** (simplest)
@@ -114,10 +133,15 @@ can be unit-tested without a browser.
     "structure": "Intro → Verse → Chorus → Solo → Ending",
     "chords": [{ "label": "Verse", "value": "Em G D C" }],
     "riffs":  [{ "label": "Riff", "note": "×4", "tab": [ ["E",0],["bar"],["repclose",4] ] }],
-    "breaks": "N/A", "notes": "..."
+    "breaks": "N/A", "notes": "...",
+    "rehearsal": { "Chorus": { "c": "red", "note": "slower!" }, "__song": { "note": "capo 2" } }
   }]
 }
 ```
+
+`rehearsal` is optional (rehearsal-mode marks/notes, keyed by section pill text,
+`__song` = whole song; `c` is `"red"` or `"yellow"`). It's screen-only — the
+PDF and print paths ignore it.
 
 ### Tab event format
 

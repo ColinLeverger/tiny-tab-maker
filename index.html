@@ -45,6 +45,7 @@
     <div class="menu-pop" id="dataMenu">
       <button data-act="import">📂 Import JSON…</button>
       <button data-act="export">💾 Export JSON</button>
+      <button data-act="share">🔗 Copy share link (data in URL)</button>
       <button data-act="demo">✨ Load demo</button>
       <button data-act="wipe">🗑 Clear all</button>
     </div>
@@ -112,12 +113,48 @@
   <button class="btn nav" id="stagePrev" title="Previous song (←)">◀</button>
   <span id="stageLabel" class="stage-label"></span>
   <button class="btn nav" id="stageNext" title="Next song (→)">▶</button>
+  <button class="btn nav" id="stageMark" title="Rehearsal mark / note (tip: tap a section pill directly)">🖍</button>
+  <button class="btn nav" id="stageSet" title="Setlist — jump / reorder / share">☰</button>
   <button class="btn nav exit" id="stageExit" title="Back to editor (Esc)">✕ Edit</button>
 </div>
 
-<!-- jsPDF + autotable (CDN, fine for GitHub Pages) -->
+<!-- ===== REHEARSAL SHEET (stage view: mark + note per section) ===== -->
+<div class="modal-bg bs-bg" id="rhModal">
+  <div class="bsheet">
+    <div class="bs-head"><h3 id="rhTitle">🖍 Rehearsal</h3><button class="btn sm" id="rhCancel">✕</button></div>
+    <div class="bs-chips" id="rhChips"></div>
+    <div class="bs-colors">
+      <button class="cbig red" data-c="red">● Needs work</button>
+      <button class="cbig yellow" data-c="yellow">● So-so</button>
+      <button class="cbig none" data-c="">○ Clear</button>
+    </div>
+    <div class="bs-notes" id="rhNotes"></div>
+    <div class="bs-push">
+      <textarea id="rhNote" rows="2" placeholder="Note… (e.g. slower · start on D · add brass stab)"></textarea>
+      <button class="btn" id="rhPush" title="Add this note and start a new one (Enter)">＋ Push</button>
+    </div>
+    <div class="bs-actions">
+      <button class="btn" id="rhCancel2">Cancel</button>
+      <button class="btn primary" id="rhSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETLIST OVERLAY (stage view: jump / reorder / share) ===== -->
+<div class="modal-bg bs-bg" id="setModal">
+  <div class="bsheet">
+    <div class="bs-head"><h3>Setlist</h3>
+      <button class="btn sm" id="setShare" title="Copy a link that carries the whole songbook and opens on the current song">🔗 Share</button>
+      <button class="btn sm" id="setClose">✕</button>
+    </div>
+    <div id="setList"></div>
+  </div>
+</div>
+
+<!-- jsPDF + autotable + lz-string (CDN, fine for GitHub Pages) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
 <script src="js/data.js"></script>
 <script src="js/demo-data.js"></script>

@@ -194,6 +194,83 @@ pre.tab{font-family:var(--mono);font-size:calc(var(--fs,12pt) * 0.7);line-height
 .pagegroup .sheet{margin:0}
 
 /* =====================================================================
+ *  REHEARSAL MARKS & NOTES — dots on pills, screen-only block, editor rows,
+ *  and the thumb-sized bottom sheet used in stage view.
+ * ===================================================================== */
+/* status dot: red = needs work, yellow = so-so, gray = note only */
+.rdot{display:inline-block;width:.6em;height:.6em;border-radius:50%;background:#9aa1a8;
+  margin-right:.35em;vertical-align:baseline}
+.rdot.red{background:#d3382f}
+.rdot.yellow{background:#e6a700}
+.rdot.note{background:#9aa1a8}
+.rflag{font-size:.85em;margin-right:.25em;opacity:.8}
+.pills .pill{position:relative}
+body.stage .pills .pill{cursor:pointer}
+
+/* rehearsal block on the songsheet — screen only, never printed */
+.rehearsal{margin-top:.7rem;border-top:1px dashed var(--line2);padding-top:.35rem}
+.rehearsal .rh-row{font-size:.84rem;padding:.18rem .45rem;margin:.18rem 0;
+  border-left:3px solid #9aa1a8;background:#f6f7f9;border-radius:0 4px 4px 0;
+  white-space:pre-line} /* one line in the note = one line on the sheet */
+.rehearsal .rh-row.red{border-left-color:#d3382f;background:#fdf0ef}
+.rehearsal .rh-row.yellow{border-left-color:#e6a700;background:#fdf7e6}
+.rehearsal .rh-nn{font-family:var(--mono);font-size:.72rem;color:#8a929b;font-weight:700}
+
+/* editor rows */
+.rh-edit{display:grid;grid-template-columns:auto minmax(70px,auto) 1fr auto;gap:.35rem;
+  align-items:center;margin-bottom:.3rem}
+.rh-edit .rh-sec{font-size:.8rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rh-edit input,.rh-edit textarea{padding:.35rem .45rem;border:1px solid var(--line2);border-radius:6px;
+  min-width:0;resize:vertical;line-height:1.3}
+.rh-c{color:#9aa1a8;font-size:1rem !important;line-height:1}
+.rh-c.red{color:#d3382f}
+.rh-c.yellow{color:#e6a700}
+
+/* bottom sheet (rehearsal + setlist) — slides from the bottom, thumb-sized */
+/* z-index 70: must cover the floating stage nav (60), which sits above modals (50) */
+.modal-bg.bs-bg{align-items:flex-end;justify-content:center;padding:0;z-index:70}
+.bsheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:560px;
+  max-height:82vh;overflow:auto;padding:.8rem .9rem calc(.9rem + env(safe-area-inset-bottom,0px));
+  box-shadow:0 -8px 40px rgba(0,0,0,.35)}
+.bs-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem}
+.bs-head h3{flex:1;margin:0;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bs-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .6rem}
+.chip{min-height:40px;padding:.35rem .75rem;border-radius:999px;border:1px solid var(--line2);
+  background:#fff;cursor:pointer;font-size:.9rem;line-height:1.2}
+.chip.on{background:var(--accent);border-color:var(--accent-d);color:#fff}
+.chip.on .rdot{outline:1.5px solid #fff}
+.bs-colors{display:flex;gap:.5rem;margin:.2rem 0 .6rem}
+.cbig{flex:1;min-height:46px;border:2px solid transparent;border-radius:10px;cursor:pointer;
+  font-weight:600;font-size:.9rem}
+.cbig.red{background:#fdf0ef;color:#b3261e}
+.cbig.yellow{background:#fdf7e6;color:#8a6400}
+.cbig.none{background:#f0f2f5;color:#555}
+.cbig.on{border-color:currentColor}
+/* pushed-note stack: one row per note, deletable */
+.bs-notes{margin:.2rem 0 .4rem}
+.rh-note-row{display:flex;align-items:center;gap:.5rem;font-size:.9rem;cursor:pointer;
+  padding:.3rem .5rem;margin:.25rem 0;background:#f6f7f9;border-left:3px solid var(--line2);
+  border-radius:0 6px 6px 0}
+.rh-note-row:hover{background:#eef2f7}
+.rh-note-row span:nth-child(2){flex:1;min-width:0;overflow-wrap:anywhere}
+.rh-note-row .rh-n{font-family:var(--mono);font-size:.72rem;color:var(--muted);font-weight:700}
+.rh-note-row .rh-pen{color:var(--muted);font-size:.85rem}
+.bs-push{display:flex;gap:.5rem;align-items:stretch}
+.bs-push .btn{min-height:44px;white-space:nowrap}
+#rhNote{flex:1;min-width:0;padding:.55rem .6rem;border:1px solid var(--line2);border-radius:9px;
+  font-size:16px;resize:vertical;min-height:2.6rem} /* 16px = no iOS auto-zoom */
+.bs-actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.7rem}
+.bs-actions .btn{min-height:42px;padding:.5rem 1.1rem}
+
+/* setlist rows: big touch targets, tap row = jump, ▲▼ = reorder */
+.set-row{display:flex;align-items:center;gap:.55rem;min-height:48px;padding:.3rem .25rem;
+  border-bottom:1px solid var(--line);cursor:pointer}
+.set-row:hover{background:#f6f8fa}
+.set-row .num{font-family:var(--mono);font-weight:700;color:var(--accent)}
+.set-row .ttl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.set-row .btn{min-width:44px;min-height:38px}
+
+/* =====================================================================
  *  STAGE / READING VIEW — full-screen, device-friendly, editor hidden.
  *  Toggled by the ⛶ View button (body.stage). Floating nav flips songs.
  * ===================================================================== */
@@ -241,6 +318,8 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
 @media print{
   @page{size:A4;margin:0}
   .topbar,.editor,.modal-bg,.resizer,.stage-nav{display:none !important}
+  /* rehearsal scribbles are personal — keep them off the printed booklet */
+  .rehearsal,.rdot,.rflag{display:none !important}
   .layout{display:block;height:auto}
   .preview-wrap{padding:0;background:#fff;overflow:visible}
   #preview{max-width:none;margin:0}

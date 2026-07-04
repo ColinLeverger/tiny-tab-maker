@@ -134,6 +134,31 @@
     });
   }
 
+  /* ---------------- rehearsal helpers (marks + section notes) ---------------- */
+  // song.rehearsal = { "<section text>": {c:"red"|"yellow", note:"..."}, "__song": {...} }
+  function rhWorst(rh) {
+    var c = null, note = false;
+    Object.keys(rh || {}).forEach(function (k) {
+      var e = rh[k]; if (!e) return;
+      if (e.c === "red") c = "red"; else if (e.c === "yellow" && c !== "red") c = "yellow";
+      if (e.note) note = true;
+    });
+    return { c: c, note: note };
+  }
+  function rhDot(rh) {
+    var w = rhWorst(rh);
+    if (!w.c && !w.note) return "";
+    return '<span class="rdot ' + (w.c || "note") + '"></span>';
+  }
+  function songSections(s) {
+    var seen = {}, out = [];
+    FG.structurePills(s.structure).forEach(function (p) {
+      if (!seen[p.text]) { seen[p.text] = 1; out.push(p.text); }
+    });
+    return out;
+  }
+  function rhLabel(k) { return k === "__song" ? "♪ Song" : k; }
+
   /* ---------------- editor: songs ---------------- */
   function songCard(s, i) {
     var open = UI.openSong === i;
@@ -157,10 +182,26 @@
         "</div>";
     }).join("");
 
+    // rehearsal rows (only entries that exist): color cycle · section · note · delete
+    var rhKeys = Object.keys(s.rehearsal || {}).filter(function (k) {
+      var e = s.rehearsal[k]; return e && (e.c || e.note);
+    });
+    var rhRows = rhKeys.length
+      ? '<div class="sub">Rehearsal marks 🖍</div>' + rhKeys.map(function (k) {
+          var e = s.rehearsal[k];
+          return '<div class="rh-edit">' +
+            '<button class="btn sm rh-c ' + (e.c || "") + '" data-act="rhColor" data-song="' + i + '" data-sec="' + esc(k) + '" title="Cycle: red → yellow → none">●</button>' +
+            '<span class="rh-sec">' + esc(rhLabel(k)) + "</span>" +
+            '<textarea rows="1" data-song="' + i + '" data-rh="' + esc(k) + '" placeholder="Note">' + esc(e.note || "") + "</textarea>" +
+            '<button class="btn sm danger" data-act="rhDel" data-song="' + i + '" data-sec="' + esc(k) + '">✕</button>' +
+            "</div>";
+        }).join("")
+      : "";
+
     return '<div class="song-card' + (open ? " open" : "") + '" data-card="' + i + '">' +
       '<div class="sc-head" data-toggle="' + i + '" data-drag="song" data-song="' + i + '" draggable="true" title="Drag the bar to reorder">' +
         '<span class="grip" aria-hidden="true">⠿</span>' +
-        '<span class="num">' + esc(s.num) + "</span>" +
+        '<span class="num">' + esc(s.num) + rhDot(s.rehearsal) + "</span>" +
         '<span class="ttl">' + esc(s.title || "(untitled)") + "</span>" +
         '<button class="btn sm" data-act="up" data-song="' + i + '" title="Up">▲</button>' +
         '<button class="btn sm" data-act="down" data-song="' + i + '" title="Down">▼</button>' +
@@ -184,6 +225,7 @@
         '<button class="addline" data-act="addChord" data-song="' + i + '">＋ chord section</button>' +
         '<div class="sub">Riffs / tabs</div>' + riffRows +
         '<button class="addline" data-act="addRiff" data-song="' + i + '">＋ riff</button>' +
+        rhRows +
         '<div class="grid2" style="margin-top:.5rem">' +
           '<div class="row"><label>Breaks</label><input data-song="' + i + '" data-field="breaks" value="' + esc(s.breaks) + '"></div>' +
           '<div class="row"><label>Notes</label><input data-song="' + i + '" data-field="notes" value="' + esc(s.notes) + '"></div>' +
@@ -231,6 +273,13 @@
     commitPending();
     touchUpdated();
     if (t.hasAttribute("data-field")) { s[t.getAttribute("data-field")] = t.value; }
+    else if (t.hasAttribute("data-rh")) {
+      var rk = t.getAttribute("data-rh");
+      s.rehearsal = s.rehearsal || {};
+      s.rehearsal[rk] = s.rehearsal[rk] || {};
+      s.rehearsal[rk].note = t.value;
+      if (!t.value) delete s.rehearsal[rk].note;
+    }
     else if (t.hasAttribute("data-ci")) {
       var ci = +t.getAttribute("data-ci"); s.chords[ci][t.getAttribute("data-part")] = t.value;
     } else if (t.hasAttribute("data-ri")) {
@@ -262,6 +311,21 @@
     if (act === "addRiff") { pushHistory(); s.riffs.push({ label: "Riff", note: "", tab: null }); renderAll(); return; }
     if (act === "delRiff") { pushHistory(); s.riffs.splice(+btn.getAttribute("data-ri"), 1); renderAll(); return; }
     if (act === "editTab") { openTabEditor(si, +btn.getAttribute("data-ri")); return; }
+    if (act === "rhColor") {
+      var rk1 = btn.getAttribute("data-sec"), e1 = s.rehearsal && s.rehearsal[rk1];
+      if (!e1) return;
+      pushHistory();
+      e1.c = e1.c === "red" ? "yellow" : e1.c === "yellow" ? null : "red";
+      if (!e1.c) delete e1.c;
+      if (!e1.c && !e1.note) { delete s.rehearsal[rk1]; }
+      renderAll(); return;
+    }
+    if (act === "rhDel") {
+      pushHistory();
+      if (s.rehearsal) delete s.rehearsal[btn.getAttribute("data-sec")];
+      if (s.rehearsal && !Object.keys(s.rehearsal).length) delete s.rehearsal;
+      renderAll(); return;
+    }
   });
 
   $("#addSong").addEventListener("click", function () {
@@ -519,7 +583,8 @@
       var url = URL.createObjectURL(blob), link = document.createElement("a");
       link.href = url; link.download = "songbook-data.json"; link.click();
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    } else if (a === "import") { $("#fileInput").click(); }
+    } else if (a === "share") { copyShare(null); }
+    else if (a === "import") { $("#fileInput").click(); }
     else if (a === "demo") { if (confirm("Replace the current content with the demo?")) { pushHistory(); STATE = clone(FG.DEMO); UI.openSong = null; renderAll(); } }
     else if (a === "wipe") {
       if (confirm("Clear everything (empty songbook)? Export first if needed.")) {
@@ -634,13 +699,250 @@
   // expose for the preview-refresh hook (re-apply current sheet after a re-render)
   root.__ttmStageRefresh = function () { if (document.body.classList.contains("stage")) renderStageCurrent(); };
 
+  // index of the song shown in stage view (-1 on the cover)
+  function stageSongIndex() {
+    var cur = stageSheets()[stageIdx];
+    return cur ? $$("#preview .sheet.songsheet").indexOf(cur) : -1;
+  }
+  function jumpToSong(i) {
+    var target = $$("#preview .sheet.songsheet")[i];
+    var k = stageSheets().indexOf(target);
+    if (k >= 0) stageGo(k);
+  }
+
+  /* =====================================================================
+   *  REHEARSAL SHEET — thumb-sized bottom sheet in stage view.
+   *  Open: tap a section pill (preselects it) or 🖍 (preselects ♪ Song).
+   *  Chips retarget; colour + note live in a working copy; Save commits all.
+   * ===================================================================== */
+  var RH = null; // { si, work: clone(song.rehearsal), sec: current target key }
+  function openRehearsal(si, sec) {
+    var s = STATE.songs[si]; if (!s) return;
+    RH = { si: si, work: clone(s.rehearsal || {}), sec: sec || "__song", editK: null };
+    $("#rhTitle").textContent = "🖍 " + (s.num ? s.num + " — " : "") + (s.title || "Song");
+    $("#rhNote").value = "";
+    drawRh();
+    $("#rhModal").classList.add("open");
+  }
+  function closeRh() { $("#rhModal").classList.remove("open"); RH = null; }
+  function rhSet(patch) {
+    var e = RH.work[RH.sec] || (RH.work[RH.sec] = {});
+    Object.keys(patch).forEach(function (k) { e[k] = patch[k]; });
+    if (!e.c) delete e.c;
+    if (!e.note) delete e.note;
+    if (!e.c && !e.note) delete RH.work[RH.sec];
+  }
+  function drawRh() {
+    var s = STATE.songs[RH.si];
+    var secs = ["__song"].concat(songSections(s));
+    Object.keys(RH.work).forEach(function (k) { if (secs.indexOf(k) < 0) secs.push(k); });
+    if (secs.indexOf(RH.sec) < 0) secs.push(RH.sec);
+    $("#rhChips").innerHTML = secs.map(function (k) {
+      var e = RH.work[k];
+      return '<button class="chip' + (k === RH.sec ? " on" : "") + '" data-sec="' + esc(k) + '">' +
+        (e && e.c ? '<span class="rdot ' + e.c + '"></span>' : "") +
+        (e && e.note ? "✎ " : "") + esc(rhLabel(k)) + "</button>";
+    }).join("");
+    var cur = RH.work[RH.sec] || {};
+    $$("#rhModal .cbig").forEach(function (b) {
+      b.classList.toggle("on", (b.getAttribute("data-c") || "") === (cur.c || ""));
+    });
+    // pushed notes for this target, one row each, deletable. The textarea is a
+    // DRAFT: never overwritten here (a colour tap must not eat what's typed).
+    var lines = (cur.note || "").split("\n").filter(Boolean);
+    $("#rhNotes").innerHTML = lines.map(function (ln, k) {
+      return '<div class="rh-note-row" data-k="' + k + '" title="Tap to edit">' +
+        '<span class="rh-n">' + noteNum(k) + "</span>" +
+        "<span>" + esc(ln) + "</span>" +
+        '<span class="rh-pen">✎</span>' +
+        '<button class="btn sm danger" data-ln="' + k + '" title="Delete this note">✕</button></div>';
+    }).join("");
+  }
+  function noteNum(k) { var n = k + 1; return "#" + (n < 10 ? "0" + n : n); }
+  // push the draft as a note line for the current target, blank the field.
+  // A note being edited (editK) goes back to ITS slot; a fresh one is appended.
+  function rhPushDraft() {
+    if (!RH) return false;
+    var ta = $("#rhNote"), v = ta.value.trim();
+    if (!v) { RH.editK = null; return false; }
+    var e = RH.work[RH.sec] || (RH.work[RH.sec] = {});
+    var lines = (e.note || "").split("\n").filter(Boolean);
+    if (RH.editK != null) lines.splice(Math.min(RH.editK, lines.length), 0, v);
+    else lines.push(v);
+    e.note = lines.join("\n");
+    RH.editK = null;
+    ta.value = "";
+    return true;
+  }
+  $("#rhPush").addEventListener("click", function () {
+    if (rhPushDraft()) drawRh();
+    $("#rhNote").focus();
+  });
+  $("#rhNote").addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (rhPushDraft()) drawRh(); }
+  });
+  $("#rhNotes").addEventListener("click", function (e) {
+    if (!RH) return;
+    var cur = RH.work[RH.sec]; if (!cur) return;
+    var del = e.target.closest("[data-ln]");
+    if (del) {                                    // ✕ = delete that note
+      var dk = +del.getAttribute("data-ln");
+      var lines = (cur.note || "").split("\n").filter(Boolean);
+      lines.splice(dk, 1);
+      if (RH.editK != null && dk < RH.editK) RH.editK--;   // keep the edit slot honest
+      rhSet({ note: lines.join("\n") || null });
+      drawRh(); return;
+    }
+    var row = e.target.closest(".rh-note-row");   // tap row = pop it back for editing
+    if (!row) return;
+    var k = +row.getAttribute("data-k");
+    var prevEdit = RH.editK;
+    rhPushDraft();                                // park any pending draft/edit in its slot
+    if (prevEdit != null && prevEdit <= k) k++;   // parked row re-entered before this one
+    cur = RH.work[RH.sec]; if (!cur) return;      // (push may have re-created it)
+    var ls = (cur.note || "").split("\n").filter(Boolean);
+    var picked = ls.splice(k, 1)[0] || "";
+    rhSet({ note: ls.join("\n") || null });
+    RH.editK = k;                                 // pushed edit returns to this slot
+    $("#rhNote").value = picked;
+    drawRh();
+    $("#rhNote").focus();
+  });
+  $("#rhChips").addEventListener("click", function (e) {
+    var c = e.target.closest(".chip"); if (!c || !RH) return;
+    rhPushDraft();                      // don't lose a typed-but-unpushed note
+    RH.sec = c.getAttribute("data-sec"); drawRh();
+  });
+  $$("#rhModal .cbig").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (!RH) return;
+      rhSet({ c: this.getAttribute("data-c") || null });
+      drawRh();
+    });
+  });
+  $("#rhSave").addEventListener("click", function () {
+    if (!RH) return;
+    rhPushDraft();                      // Save also folds in an unpushed draft
+    pushHistory();
+    var s = STATE.songs[RH.si];
+    if (Object.keys(RH.work).length) s.rehearsal = clone(RH.work); else delete s.rehearsal;
+    touchUpdated(); closeRh(); renderAll();
+  });
+  $("#rhCancel").addEventListener("click", closeRh);
+  $("#rhCancel2").addEventListener("click", closeRh);
+  $("#rhModal").addEventListener("click", function (e) { if (e.target === $("#rhModal")) closeRh(); });
+  var stageMark = $("#stageMark");
+  if (stageMark) stageMark.addEventListener("click", function () {
+    var i = stageSongIndex();
+    openRehearsal(i >= 0 ? i : 0, "__song");
+  });
+  // tapping a section pill on the current sheet (stage view only)
+  $("#preview").addEventListener("click", function (e) {
+    if (!document.body.classList.contains("stage")) return;
+    var p = e.target.closest(".pill[data-sec]"); if (!p) return;
+    var i = stageSongIndex(); if (i < 0) return;
+    openRehearsal(i, p.getAttribute("data-sec"));
+  });
+
+  /* =====================================================================
+   *  SETLIST OVERLAY — jump / reorder (big ▲▼, no drag) / share.
+   * ===================================================================== */
+  function drawSetlist() {
+    $("#setList").innerHTML = STATE.songs.length
+      ? STATE.songs.map(function (s, i) {
+          return '<div class="set-row" data-i="' + i + '">' +
+            '<span class="num">' + esc(s.num) + "</span>" +
+            '<span class="ttl">' + rhDot(s.rehearsal) + esc(s.title || "(untitled)") + "</span>" +
+            '<button class="btn sm" data-mv="up" data-i="' + i + '" title="Up">▲</button>' +
+            '<button class="btn sm" data-mv="down" data-i="' + i + '" title="Down">▼</button>' +
+            "</div>";
+        }).join("")
+      : '<div class="empty-hint">No songs.</div>';
+  }
+  function closeSetlist() { $("#setModal").classList.remove("open"); }
+  var stageSet = $("#stageSet");
+  if (stageSet) stageSet.addEventListener("click", function () {
+    drawSetlist(); $("#setModal").classList.add("open");
+  });
+  $("#setClose").addEventListener("click", closeSetlist);
+  $("#setModal").addEventListener("click", function (e) { if (e.target === $("#setModal")) closeSetlist(); });
+  $("#setList").addEventListener("click", function (e) {
+    var mv = e.target.closest("[data-mv]");
+    if (mv) {
+      var i = +mv.getAttribute("data-i");
+      var j = mv.getAttribute("data-mv") === "up" ? i - 1 : i + 1;
+      if (j < 0 || j >= STATE.songs.length) return;
+      pushHistory();
+      var tmp = STATE.songs[i]; STATE.songs[i] = STATE.songs[j]; STATE.songs[j] = tmp;
+      if (UI.openSong === i) UI.openSong = j; else if (UI.openSong === j) UI.openSong = i;
+      touchUpdated(); renderAll(); drawSetlist();
+      return;
+    }
+    var row = e.target.closest(".set-row");
+    if (row) { jumpToSong(+row.getAttribute("data-i")); closeSetlist(); }
+  });
+
+  /* =====================================================================
+   *  SHARE VIA URL — whole songbook compressed into the #d= fragment.
+   *  The fragment never reaches the server (GitHub Pages sees nothing).
+   *  #s=<n> optionally opens stage view on song n.
+   * ===================================================================== */
+  function buildShareLink(songIdx) {
+    if (typeof LZString === "undefined") {
+      alert("Share link needs the lz-string library (CDN unreachable / offline?).");
+      return null;
+    }
+    var d = LZString.compressToEncodedURIComponent(JSON.stringify(STATE));
+    return location.origin + location.pathname + "#d=" + d +
+      (songIdx != null && songIdx >= 0 ? "&s=" + songIdx : "");
+  }
+  function copyShare(songIdx) {
+    var url = buildShareLink(songIdx); if (!url) return;
+    var kb = Math.round(url.length / 102.4) / 10;
+    var done = function () { setStatus("✓ Link copied (" + kb + " KB — whole songbook inside)"); };
+    var fallback = function () { prompt("Copy this link:", url); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, fallback);
+    } else fallback();
+  }
+  $("#setShare").addEventListener("click", function () { copyShare(stageSongIndex()); });
+
+  // boot import: #d= data (+ optional #s= song to open in stage view)
+  var PENDING_STAGE_SONG = null;
+  (function () {
+    var h = location.hash || "";
+    var dm = h.match(/[#&]d=([^&]+)/), sm = h.match(/[#&]s=(\d+)/);
+    if (sm) PENDING_STAGE_SONG = +sm[1];
+    if (dm) {
+      if (typeof LZString === "undefined") {
+        alert("This link carries songbook data but the lz-string library didn't load (offline?).");
+      } else {
+        try {
+          var data = JSON.parse(LZString.decompressFromEncodedURIComponent(dm[1]));
+          if (!data || !Array.isArray(data.songs)) throw new Error("invalid structure");
+          if (!data.meta) data.meta = FG.emptyState().meta;
+          var n = data.songs.length;
+          if (confirm("Load the songbook carried by this link (" + n + " song" + (n > 1 ? "s" : "") +
+                      ")?\nIt replaces the data saved in this browser — Cancel and Export first if unsure.")) {
+            pushHistory(); STATE = data; UI.openSong = null;
+          } else PENDING_STAGE_SONG = null;
+        } catch (err) { alert("Couldn't read the data in this link: " + err.message); PENDING_STAGE_SONG = null; }
+      }
+    }
+    // NB: root.history — the plain `history` name is shadowed by the undo array
+    if (dm || sm) { try { root.history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
+  })();
+
   // keyboard: Esc closes modal / leaves View; arrows flip songs in View mode
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
+      if (RH) { closeRh(); return; }
+      if ($("#setModal").classList.contains("open")) { closeSetlist(); return; }
       if (TAB) { closeTab(); return; }
       if (document.body.classList.contains("stage")) { exitStage(); return; }
     }
-    if (document.body.classList.contains("stage") && !TAB) {
+    if (document.body.classList.contains("stage") && !TAB && !RH &&
+        !$("#setModal").classList.contains("open")) {
       var ae = document.activeElement;
       if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
       if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") { e.preventDefault(); stageGo(stageIdx + 1); }
@@ -659,4 +961,12 @@
   renderAll();
   if (!STORAGE_OK) setStatus("⚠︎ browser storage unavailable — use Export", true);
   else if (RESTORED) setStatus("✓ Restored from browser");
+  // link carried a song index -> open stage view on it (after the debounced render)
+  if (PENDING_STAGE_SONG != null) {
+    setTimeout(function () {
+      enterStage();
+      jumpToSong(Math.max(0, Math.min(STATE.songs.length - 1, PENDING_STAGE_SONG)));
+      PENDING_STAGE_SONG = null;
+    }, 400);
+  }
 })(typeof window !== "undefined" ? window : globalThis);

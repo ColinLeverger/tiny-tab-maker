@@ -15,10 +15,42 @@
   function fillOf(cat, bw) { return bw ? FG.grayHex(cat.gray) : cat.fill; }
   function inkOf(cat, bw) { return bw ? FG.inkOnGray(cat.gray) : cat.ink; }
 
-  function pill(text, cat, bw) {
-    return '<span class="pill" style="background:' + fillOf(cat, bw) +
+  function pill(text, cat, bw, mark, sec) {
+    // mark = optional rehearsal entry {c:"red"|"yellow", note:"..."}; sec = section
+    // key -> the pill becomes tappable in stage view (data-sec).
+    var badge = "";
+    if (mark && mark.c) badge += '<span class="rdot ' + mark.c + '"></span>';
+    if (mark && mark.note) badge += '<span class="rflag">✎</span>';
+    return '<span class="pill"' + (sec != null ? ' data-sec="' + esc(sec).replace(/"/g, "&quot;") + '"' : "") +
+      ' style="background:' + fillOf(cat, bw) +
       ';border-color:' + inkOf(cat, bw) + ';color:' + inkOf(cat, bw) + '">' +
-      esc(text) + "</span>";
+      badge + esc(text) + "</span>";
+  }
+
+  /* ---- rehearsal marks/notes (screen-only, never printed) ------------ */
+  function rhEntries(s) {
+    var rh = s.rehearsal || {}, out = [];
+    if (rh.__song && (rh.__song.c || rh.__song.note)) out.push(["__song", rh.__song]);
+    Object.keys(rh).forEach(function (k) {
+      if (k !== "__song" && rh[k] && (rh[k].c || rh[k].note)) out.push([k, rh[k]]);
+    });
+    return out;
+  }
+  function noteNum(k) { var n = k + 1; return "#" + (n < 10 ? "0" + n : n); }
+  function rhBlock(s) {
+    var es = rhEntries(s);
+    if (!es.length) return "";
+    return '<div class="rehearsal"><div class="lbl">Rehearsal 🖍</div>' +
+      es.map(function (kv) {
+        var e = kv[1];
+        var lines = (e.note || "").split("\n").filter(Boolean);
+        var notes = lines.map(function (ln, k) {
+          return '<span class="rh-nn">' + noteNum(k) + "</span> " + esc(ln);
+        }).join("<br>");
+        return '<div class="rh-row' + (e.c ? " " + e.c : "") + '"><b>' +
+          (kv[0] === "__song" ? "♪ Song" : esc(kv[0])) + "</b>" +
+          (notes ? " — " + notes : "") + "</div>";
+      }).join("") + "</div>";
   }
 
   /* ---- cover page --------------------------------------------------- */
@@ -84,7 +116,10 @@
 
   /* ---- one song songsheet ----------------------------------------------- */
   function songsheet(s, bw, chordPt) {
-    var head = '<div class="songsheet-head"><span class="fh-title">' +
+    var rh = s.rehearsal || {};
+    var songMark = (rh.__song && (rh.__song.c || rh.__song.note))
+      ? '<span class="rdot ' + (rh.__song.c || "note") + '"></span>' : "";
+    var head = '<div class="songsheet-head"><span class="fh-title">' + songMark +
       esc(s.num) + " — " + esc(s.title).toUpperCase() + "</span>" +
       '<span class="fh-meta">' +
         [s.key, s.tempo, s.meter || s.feel, s.group].filter(Boolean).map(esc).join(" · ") +
@@ -94,7 +129,7 @@
     var structure = "";
     if (pills.length) {
       structure = '<div class="lbl">Structure</div><div class="pills">' +
-        pills.map(function (p) { return pill(p.text, p.cat, bw); }).join('<span class="arr">›</span>') +
+        pills.map(function (p) { return pill(p.text, p.cat, bw, rh[p.text], p.text); }).join('<span class="arr">›</span>') +
         "</div>";
     } else if (s.structure) {
       structure = '<div class="lbl">Structure</div><div class="raw">' + esc(s.structure) + "</div>";
@@ -125,7 +160,7 @@
     var tabs = (s.riffs || []).map(function (r) { return tabHtml(r, chordPt); }).join("");
 
     return '<section class="sheet songsheet">' + head + structure + chords +
-      extraHtml + tabs + "</section>";
+      extraHtml + tabs + rhBlock(s) + "</section>";
   }
 
   /* ---- whole document ----------------------------------------------- */
@@ -157,5 +192,5 @@
   }
 
   FG.renderPreview = renderPreview;
-  FG.fillOf = fillOf; FG.inkOf = inkOf;
+  FG.fillOf = fillOf; FG.inkOf = inkOf; FG.rhEntries = rhEntries;
 })(typeof window !== "undefined" ? window : globalThis);
