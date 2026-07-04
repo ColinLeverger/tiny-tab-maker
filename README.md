@@ -60,17 +60,36 @@ splits a song across two pages). **Size** sets the chord + tab text size.
 
 ## Rehearsal mode (phone / tablet)
 
-The **⛶ View** button gives a full-screen, one-song-per-screen reading view.
+The **📖 View** button gives a full-screen, one-song-per-screen reading view.
 On top of it:
 
 - **Tap a section pill** (or the **🖍** button for the whole song) → a bottom
-  sheet opens: mark the section **red** (needs work) / **yellow** (so-so) and/or
-  type a quick note. Chips at the top retarget to any other section. Marks show
-  as dots on the pills and in a "Rehearsal" block on the sheet — **on screen
+  sheet opens: mark the section **red** (needs work) / **yellow** (so-so) and
+  **push notes**: type, hit *＋ Push* (or Enter), the field blanks for the next
+  one. Notes stack up numbered **#01, #02…**; tap a row to pull it back for
+  editing (it returns to its slot), ✕ deletes it. Chips at the top retarget to
+  any other section without losing a half-typed draft. Marks show as dots on
+  the pills and in a numbered "Rehearsal" block on the sheet — **on screen
   only, never printed** (they're your scribbles, not the band's booklet). They
-  are editable/deletable from the song card in the editor too.
-- **☰** opens the setlist: tap a song to jump to it, big **▲▼** to reorder the
-  set on the spot (plays nice with Auto-№).
+  are editable/deletable from the song card in the editor too, and they travel
+  inside Export JSON and share links like everything else.
+- **☰** opens the setlist: tap a song to jump to it, big **▲▼** to reorder
+  (plays nice with Auto-№). The picker at the top switches between the
+  **whole book and named setlists** — a setlist is an ordered subset of the
+  book (stored by stable song ids, so reordering the book never breaks a set).
+  With a set active, View mode flips through *that* set only; the printable
+  booklet always stays whole-book. ＋ New creates one, − / ＋ move songs in and
+  out, 🗑 deletes the list (songs stay).
+- **🖍 Practice digest** (Generate menu): every mark & note in the book on one
+  page, red-first per song — the "what to fix at home" list. Printable on
+  demand (unlike the per-sheet scribbles, which never print).
+- **🥁 Tap** (top bar, or in ☰ preset to the current song's tempo) opens
+  `tap.html`: a full-screen tap-tempo pad + Web Audio metronome with accented
+  downbeat (2/4 · 3/4 · 4/4 · 6/8), `?bpm=` preset, zero dependencies.
+- **PWA / offline**: the app ships a manifest + service worker. Visit once
+  online, then *Add to Home Screen* — it opens full-screen and works with **no
+  network at all** (CDN libs get runtime-cached too). Bump `VERSION` in `sw.js`
+  when deploying changes.
 - **🔗 Share** (in ☰, or Data → *Copy share link*) puts the **whole songbook,
   compressed, in the URL fragment** (`#d=…`, lz-string). Open that link in any
   browser/device and it offers to import — no backend, and the fragment never
@@ -110,12 +129,15 @@ and only load real data locally.
 
 ```
 index.html          page shell + script loading
+tap.html            standalone tap-tempo + metronome page (no dependencies)
 css/styles.css      UI + preview "sheets" + A4 print rules
 js/data.js          pure logic: section classifier + ASCII tab renderer (Node-testable)
 js/demo-data.js     the fictional sample data
 js/render.js        HTML preview (= what the Print mode lays out)
 js/pdf.js           vector PDF generation (jsPDF + autotable)
-js/app.js           state, editor, grid tab editor, persistence, import/export
+js/app.js           state, editor, grid tab editor, rehearsal/setlists/share, persistence
+sw.js               offline-first service worker (bump VERSION on deploy)
+manifest.webmanifest / icons/   PWA install (Add to Home Screen)
 .github/workflows/deploy.yml   Pages deploy (option B)
 ```
 
@@ -140,8 +162,13 @@ can be unit-tested without a browser.
 ```
 
 `rehearsal` is optional (rehearsal-mode marks/notes, keyed by section pill text,
-`__song` = whole song; `c` is `"red"` or `"yellow"`). It's screen-only — the
-PDF and print paths ignore it.
+`__song` = whole song; `c` is `"red"` or `"yellow"`; `note` holds the pushed
+notes, one per line). It's screen-only — the PDF and print paths ignore it
+(except the opt-in Practice digest).
+
+Each song also gets an auto-generated stable `id`, and the root may carry
+`"setlists": [{ "name": "Gig X", "songs": ["<id>", …] }]` plus `"activeSet"`
+(index or `null`). Everything rides along in Export JSON and share links.
 
 ### Tab event format
 

@@ -244,7 +244,36 @@
     host.innerHTML = STATE.songs.map(songCard).join("");
   }
 
-  function renderAll() { applyAutoNumber(); renderEditor(); updatePreview(); persist(); }
+  /* ---------------- setlists: stable ids + active set ---------------- */
+  // Setlists reference songs by id, so reordering/renaming the book never
+  // breaks a set. STATE.setlists = [{name, songs:[id,...]}], activeSet = index|null.
+  function uid() { return "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function ensureIds() {
+    (STATE.songs || []).forEach(function (s) { if (!s.id) s.id = uid(); });
+    if (!Array.isArray(STATE.setlists)) STATE.setlists = [];
+    // drop ids of deleted songs; drop a dangling active index
+    var live = {}; STATE.songs.forEach(function (s) { live[s.id] = 1; });
+    STATE.setlists.forEach(function (sl) {
+      sl.songs = (sl.songs || []).filter(function (id) { return live[id]; });
+    });
+    if (STATE.activeSet != null && !STATE.setlists[STATE.activeSet]) STATE.activeSet = null;
+  }
+  function activeSetlist() {
+    return (STATE.activeSet != null && STATE.setlists && STATE.setlists[STATE.activeSet]) || null;
+  }
+  function songIdxById() {
+    var m = {}; STATE.songs.forEach(function (s, i) { m[s.id] = i; }); return m;
+  }
+  // navigation order as book-song indices (whole book, or the active set's order)
+  function navSongIdx() {
+    var al = activeSetlist();
+    if (!al) return STATE.songs.map(function (_, i) { return i; });
+    var by = songIdxById();
+    return al.songs.map(function (id) { return by[id]; })
+      .filter(function (i) { return i != null; });
+  }
+
+  function renderAll() { ensureIds(); applyAutoNumber(); renderEditor(); updatePreview(); persist(); }
 
   /* ---------------- editor events ---------------- */
   // snapshot the state when a field gains focus, so a whole typing burst in that
@@ -574,6 +603,7 @@
     if (a === "pdf-color") FG.generatePdf(STATE, { bw: false, chordPt: UI.chordPt, compact: UI.compact });
     else if (a === "pdf-bw") FG.generatePdf(STATE, { bw: true, chordPt: UI.chordPt, compact: UI.compact });
     else if (a === "print") { window.print(); }
+    else if (a === "digest") { openDigest(); }
   });
 
   $("#dataMenu").addEventListener("click", function (e) {
@@ -610,7 +640,16 @@
   /* =====================================================================
    *  STAGE / READING VIEW — hide editor, full-screen sheets, song nav
    * ===================================================================== */
-  function stageSheets() { return $$("#preview .sheet"); }
+  // stage navigation order: cover + songsheets — filtered/reordered by the
+  // active setlist. The preview/PDF (the printable booklet) stays whole-book.
+  function stageSheets() {
+    var all = $$("#preview .sheet");
+    var al = activeSetlist();
+    if (!al) return all;
+    var songs = $$("#preview .sheet.songsheet");
+    var rest = all.filter(function (s) { return !s.classList.contains("songsheet"); });
+    return rest.concat(navSongIdx().map(function (i) { return songs[i]; }).filter(Boolean));
+  }
   var stageIdx = 0;
   function updateStageLabel() {
     var el = $("#stageLabel"); if (!el) return;
@@ -662,6 +701,8 @@
   function renderStageCurrent() {
     var sh = stageSheets(); if (!sh.length) return false;
     stageIdx = Math.max(0, Math.min(sh.length - 1, stageIdx));
+    // clear ALL sheets (a set switch may leave a now-excluded sheet current)
+    $$("#preview .sheet").forEach(function (s) { s.classList.remove("stage-current"); });
     sh.forEach(function (s, i) { s.classList.toggle("stage-current", i === stageIdx); });
     updateStageLabel(); fitStageSheet();
     return true;
@@ -847,17 +888,63 @@
   /* =====================================================================
    *  SETLIST OVERLAY — jump / reorder (big ▲▼, no drag) / share.
    * ===================================================================== */
+  function setRow(s, i, btns) {
+    return '<div class="set-row" data-i="' + i + '">' +
+      '<span class="num">' + esc(s.num) + "</span>" +
+      '<span class="ttl">' + rhDot(s.rehearsal) + esc(s.title || "(untitled)") + "</span>" +
+      btns + "</div>";
+  }
   function drawSetlist() {
-    $("#setList").innerHTML = STATE.songs.length
-      ? STATE.songs.map(function (s, i) {
-          return '<div class="set-row" data-i="' + i + '">' +
-            '<span class="num">' + esc(s.num) + "</span>" +
-            '<span class="ttl">' + rhDot(s.rehearsal) + esc(s.title || "(untitled)") + "</span>" +
-            '<button class="btn sm" data-mv="up" data-i="' + i + '" title="Up">▲</button>' +
-            '<button class="btn sm" data-mv="down" data-i="' + i + '" title="Down">▼</button>' +
-            "</div>";
-        }).join("")
-      : '<div class="empty-hint">No songs.</div>';
+    ensureIds();
+    var al = activeSetlist();
+    // picker bar: whole book / named sets / new / delete-current
+    $("#setBar").innerHTML =
+      '<select id="setSelect"><option value="">♪ Whole book (' + STATE.songs.length + ')</option>' +
+      STATE.setlists.map(function (sl, k) {
+        return '<option value="' + k + '"' + (STATE.activeSet === k ? " selected" : "") + ">" +
+          esc(sl.name) + " (" + sl.songs.length + ")</option>";
+      }).join("") + "</select>" +
+      '<button class="btn sm" id="setNew" title="New setlist">＋ New</button>' +
+      (al ? '<button class="btn sm danger" id="setDelList" title="Delete this setlist">🗑</button>' : "");
+
+    var html;
+    if (!al) {
+      html = STATE.songs.length
+        ? STATE.songs.map(function (s, i) {
+            return setRow(s, i,
+              '<button class="btn sm" data-mv="up" data-i="' + i + '" title="Up">▲</button>' +
+              '<button class="btn sm" data-mv="down" data-i="' + i + '" title="Down">▼</button>');
+          }).join("")
+        : '<div class="empty-hint">No songs.</div>';
+    } else {
+      var by = songIdxById(), inSet = {};
+      html = al.songs.map(function (id, k) {
+        var i = by[id]; if (i == null) return "";
+        inSet[id] = 1;
+        return setRow(STATE.songs[i], i,
+          '<button class="btn sm" data-smv="up" data-k="' + k + '" title="Up">▲</button>' +
+          '<button class="btn sm" data-smv="down" data-k="' + k + '" title="Down">▼</button>' +
+          '<button class="btn sm danger" data-srem="' + k + '" title="Remove from set">−</button>');
+      }).join("") || '<div class="empty-hint">Empty set — add songs below.</div>';
+      var rest = STATE.songs.filter(function (s) { return !inSet[s.id]; });
+      if (rest.length) {
+        html += '<div class="set-rest">rest of the book</div>' +
+          rest.map(function (s) {
+            var i = by[s.id];
+            return '<div class="set-row rest" data-noj="1">' +
+              '<span class="num">' + esc(s.num) + "</span>" +
+              '<span class="ttl">' + rhDot(s.rehearsal) + esc(s.title || "(untitled)") + "</span>" +
+              '<button class="btn sm" data-sadd="' + esc(s.id) + '" title="Add to set">＋</button></div>';
+          }).join("");
+      }
+    }
+    $("#setList").innerHTML = html;
+    // tap link presets to the current stage song's tempo
+    var si = stageSongIndex(), tap = $("#setTap");
+    if (tap) {
+      var tm = si >= 0 && (STATE.songs[si].tempo || "").match(/\d+/);
+      tap.href = "tap.html" + (tm ? "?bpm=" + tm[0] : "");
+    }
   }
   function closeSetlist() { $("#setModal").classList.remove("open"); }
   var stageSet = $("#stageSet");
@@ -866,8 +953,33 @@
   });
   $("#setClose").addEventListener("click", closeSetlist);
   $("#setModal").addEventListener("click", function (e) { if (e.target === $("#setModal")) closeSetlist(); });
+  $("#setBar").addEventListener("change", function (e) {
+    if (e.target.id !== "setSelect") return;
+    pushHistory();
+    STATE.activeSet = e.target.value === "" ? null : +e.target.value;
+    stageIdx = 0;                        // nav order changed: restart from the top
+    renderAll(); drawSetlist();
+  });
+  $("#setBar").addEventListener("click", function (e) {
+    if (e.target.id === "setNew") {
+      var name = prompt("Setlist name:", "Gig " + FG.todayISO());
+      if (!name) return;
+      pushHistory();
+      STATE.setlists.push({ name: name, songs: [] });
+      STATE.activeSet = STATE.setlists.length - 1;
+      renderAll(); drawSetlist();
+    } else if (e.target.id === "setDelList") {
+      var al = activeSetlist(); if (!al) return;
+      if (!confirm('Delete setlist "' + al.name + '"? (Songs stay in the book.)')) return;
+      pushHistory();
+      STATE.setlists.splice(STATE.activeSet, 1);
+      STATE.activeSet = null;
+      renderAll(); drawSetlist();
+    }
+  });
   $("#setList").addEventListener("click", function (e) {
-    var mv = e.target.closest("[data-mv]");
+    var al = activeSetlist();
+    var mv = e.target.closest("[data-mv]");        // whole-book reorder
     if (mv) {
       var i = +mv.getAttribute("data-i");
       var j = mv.getAttribute("data-mv") === "up" ? i - 1 : i + 1;
@@ -878,8 +990,75 @@
       touchUpdated(); renderAll(); drawSetlist();
       return;
     }
+    var smv = e.target.closest("[data-smv]");      // reorder inside the set
+    if (smv && al) {
+      var k = +smv.getAttribute("data-k");
+      var k2 = smv.getAttribute("data-smv") === "up" ? k - 1 : k + 1;
+      if (k2 < 0 || k2 >= al.songs.length) return;
+      pushHistory();
+      var t2 = al.songs[k]; al.songs[k] = al.songs[k2]; al.songs[k2] = t2;
+      persist(); drawSetlist(); updateStageLabel(); renderStageCurrent();
+      return;
+    }
+    var srem = e.target.closest("[data-srem]");    // remove from set
+    if (srem && al) {
+      pushHistory();
+      al.songs.splice(+srem.getAttribute("data-srem"), 1);
+      persist(); drawSetlist(); renderStageCurrent();
+      return;
+    }
+    var sadd = e.target.closest("[data-sadd]");    // add to set
+    if (sadd && al) {
+      pushHistory();
+      al.songs.push(sadd.getAttribute("data-sadd"));
+      persist(); drawSetlist(); renderStageCurrent();
+      return;
+    }
     var row = e.target.closest(".set-row");
-    if (row) { jumpToSong(+row.getAttribute("data-i")); closeSetlist(); }
+    if (row && !row.hasAttribute("data-noj")) { jumpToSong(+row.getAttribute("data-i")); closeSetlist(); }
+  });
+
+  /* =====================================================================
+   *  PRACTICE DIGEST — every mark & note in the book on one page.
+   *  Red first inside each song; songs keep book order. Printable on
+   *  purpose (it's YOUR homework list), unlike the per-sheet scribbles.
+   * ===================================================================== */
+  function drawDigest() {
+    var rank = { red: 0, yellow: 1 };
+    var html = STATE.songs.map(function (s) {
+      var es = FG.rhEntries(s);
+      if (!es.length) return "";
+      es.sort(function (a, b) {
+        return (a[1].c in rank ? rank[a[1].c] : 2) - (b[1].c in rank ? rank[b[1].c] : 2);
+      });
+      return '<div class="dg-song"><div class="dg-title">' +
+        esc(s.num) + " — " + esc(s.title || "(untitled)") + "</div>" +
+        es.map(function (kv) {
+          var e = kv[1];
+          var lines = (e.note || "").split("\n").filter(Boolean);
+          var notes = lines.map(function (ln, k) {
+            return '<span class="rh-nn">' + noteNum(k) + "</span> " + esc(ln);
+          }).join("<br>");
+          return '<div class="rh-row' + (e.c ? " " + e.c : "") + '"><b>' +
+            esc(rhLabel(kv[0])) + "</b>" + (notes ? " — " + notes : "") + "</div>";
+        }).join("") + "</div>";
+    }).join("");
+    $("#digestBody").innerHTML = html ||
+      '<div class="empty-hint">No rehearsal marks yet — tap section pills in 📖 View to add some.</div>';
+  }
+  function closeDigest() { $("#digestModal").classList.remove("open"); }
+  function openDigest() { drawDigest(); $("#digestModal").classList.add("open"); }
+  $("#digestClose").addEventListener("click", closeDigest);
+  $("#digestModal").addEventListener("click", function (e) { if (e.target === $("#digestModal")) closeDigest(); });
+  $("#digestPrint").addEventListener("click", function () {
+    document.body.classList.add("digest-printing");
+    var off = function () { document.body.classList.remove("digest-printing"); };
+    if (root.matchMedia) {
+      var mql = root.matchMedia("print");
+      var h = function (m) { if (!m.matches) { off(); mql.removeListener(h); } };
+      mql.addListener(h);
+    }
+    setTimeout(function () { root.print(); setTimeout(off, 1000); }, 30);
   });
 
   /* =====================================================================
@@ -937,6 +1116,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       if (RH) { closeRh(); return; }
+      if ($("#digestModal").classList.contains("open")) { closeDigest(); return; }
       if ($("#setModal").classList.contains("open")) { closeSetlist(); return; }
       if (TAB) { closeTab(); return; }
       if (document.body.classList.contains("stage")) { exitStage(); return; }

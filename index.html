@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tiny Tab Maker</title>
 <meta name="description" content="Tiny static editor: song structure → chords → tabs → printable PDF. Hostable on GitHub Pages.">
+<meta name="theme-color" content="#2b3440">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -29,7 +34,8 @@
   <span id="saveStatus" class="savestat" title="Your data stays in this browser, even after closing"></span>
 
   <button class="btn ghost" id="undoBtn" title="Undo last change (Ctrl/Cmd+Z)" disabled>↶ Undo</button>
-  <button class="btn ghost" id="viewBtn" title="Full-screen reading view — hide the editor and flip through songs">⛶ View</button>
+  <a class="btn ghost" id="tapLink" href="tap.html" title="Tap tempo &amp; metronome">🥁 Tap</a>
+  <button class="btn ghost" id="viewBtn" title="Full-screen reading view — hide the editor and flip through songs">📖 View</button>
 
   <div class="menu">
     <button class="btn primary" id="genBtn">Generate ▾</button>
@@ -37,6 +43,7 @@
       <button data-act="pdf-color">⬇︎ PDF colour (.pdf)</button>
       <button data-act="pdf-bw">⬇︎ PDF B&amp;W (.pdf)</button>
       <button data-act="print">🖨 Print / Save as PDF (faithful)</button>
+      <button data-act="digest">🖍 Practice digest (all marks &amp; notes)</button>
     </div>
   </div>
 
@@ -144,10 +151,23 @@
 <div class="modal-bg bs-bg" id="setModal">
   <div class="bsheet">
     <div class="bs-head"><h3>Setlist</h3>
+      <a class="btn sm" id="setTap" href="tap.html" title="Tap tempo &amp; metronome (preset to this song)">🥁</a>
       <button class="btn sm" id="setShare" title="Copy a link that carries the whole songbook and opens on the current song">🔗 Share</button>
       <button class="btn sm" id="setClose">✕</button>
     </div>
+    <div class="set-bar" id="setBar"></div>
     <div id="setList"></div>
+  </div>
+</div>
+
+<!-- ===== PRACTICE DIGEST (all rehearsal marks & notes, one page) ===== -->
+<div class="modal-bg bs-bg" id="digestModal">
+  <div class="bsheet">
+    <div class="bs-head"><h3>🖍 Practice digest</h3>
+      <button class="btn sm" id="digestPrint" title="Print just this digest">🖨 Print</button>
+      <button class="btn sm" id="digestClose">✕</button>
+    </div>
+    <div id="digestBody"></div>
   </div>
 </div>
 
@@ -161,5 +181,9 @@
 <script src="js/render.js"></script>
 <script src="js/pdf.js"></script>
 <script src="js/app.js"></script>
+<script>
+// PWA: offline cache — after one online visit the app works with no network
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
+</script>
 </body>
 </html>

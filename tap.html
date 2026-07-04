@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Tap tempo — Tiny Tab Maker</title>
+<meta name="theme-color" content="#10141a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+/* Standalone on purpose: zero dependencies, works fully offline. */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:#10141a;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  display:flex;flex-direction:column;user-select:none;-webkit-user-select:none}
+.top{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;
+  padding-top:max(.6rem, env(safe-area-inset-top))}
+.top a{color:#8ab4f8;text-decoration:none;font-size:.9rem}
+.top .sp{flex:1}
+.btn{background:#222a35;color:#e6edf3;border:1px solid #37414e;border-radius:10px;
+  padding:.55rem .9rem;font-size:1rem;cursor:pointer;line-height:1}
+.btn:active{background:#2c3644}
+.btn.on{background:#2f5fb3;border-color:#2f5fb3}
+/* the whole middle of the screen is the tap pad */
+#pad{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;position:relative;margin:0 .8rem;border:2px dashed #37414e;border-radius:22px;
+  transition:background .06s}
+#pad.hit{background:#1b2431}
+#bpm{font-size:clamp(70px,24vw,180px);font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+#bpm small{font-size:.22em;font-weight:600;color:#8a929b;letter-spacing:.08em}
+#hint{color:#8a929b;font-size:.95rem;margin-top:.6rem;text-align:center;padding:0 1rem}
+#taps{color:#57606a;font-size:.8rem;margin-top:.35rem;min-height:1em}
+/* beat flash dots */
+#beats{display:flex;gap:.55rem;margin-top:1.1rem;min-height:16px}
+#beats i{width:14px;height:14px;border-radius:50%;background:#2c3644}
+#beats i.on{background:#e6a700}
+#beats i.acc.on{background:#d3382f}
+.bottom{display:flex;gap:.6rem;align-items:center;justify-content:center;padding:.8rem;
+  padding-bottom:max(.8rem, env(safe-area-inset-bottom))}
+.bottom .btn.big{font-size:1.15rem;padding:.8rem 1.4rem;border-radius:14px}
+.step{display:flex;align-items:center;gap:.2rem}
+.step .btn{min-width:52px}
+#bpb{background:#222a35;color:#e6edf3;border:1px solid #37414e;border-radius:10px;padding:.5rem .4rem;font-size:1rem}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <a href="index.html">← songbook</a>
+  <span class="sp"></span>
+  <span style="color:#8a929b;font-size:.9rem">🥁 tap tempo &amp; metronome</span>
+</div>
+
+<div id="pad">
+  <div id="bpm">—<small> BPM</small></div>
+  <div id="beats"></div>
+  <div id="hint">TAP anywhere here to the beat (or spacebar) — 2 s pause resets</div>
+  <div id="taps"></div>
+</div>
+
+<div class="bottom">
+  <div class="step">
+    <button class="btn" id="minus">−</button>
+    <button class="btn" id="plus">＋</button>
+  </div>
+  <button class="btn big" id="metro">▶ metronome</button>
+  <select id="bpb" title="Beats per bar">
+    <option value="2">2/4</option>
+    <option value="3">3/4</option>
+    <option value="4" selected>4/4</option>
+    <option value="6">6/8</option>
+  </select>
+  <button class="btn" id="reset" title="Clear taps">↺</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var bpm = null, taps = [], MAXTAPS = 8, RESET_MS = 2000;
+
+  // ?bpm=118 preset (links from the songbook pass the song's tempo)
+  var m = location.search.match(/[?&]bpm=(\d+)/);
+  if (m) bpm = Math.max(20, Math.min(300, +m[1]));
+
+  function show() {
+    $("#bpm").innerHTML = (bpm ? Math.round(bpm) : "—") + "<small> BPM</small>";
+    $("#taps").textContent = taps.length > 1 ? taps.length + " taps" : "";
+    if (metroOn) restartMetro();          // live tempo change while running
+  }
+
+  function tap() {
+    var now = performance.now();
+    if (taps.length && now - taps[taps.length - 1] > RESET_MS) taps = [];
+    taps.push(now);
+    if (taps.length > MAXTAPS) taps.shift();
+    if (taps.length > 1) {
+      var gaps = [];
+      for (var i = 1; i < taps.length; i++) gaps.push(taps[i] - taps[i - 1]);
+      var avg = gaps.reduce(function (a, b) { return a + b; }, 0) / gaps.length;
+      bpm = 60000 / avg;
+    }
+    var pad = $("#pad");
+    pad.classList.add("hit");
+    setTimeout(function () { pad.classList.remove("hit"); }, 70);
+    show();
+  }
+
+  $("#pad").addEventListener("pointerdown", tap);
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); tap(); }
+  });
+  $("#reset").addEventListener("click", function (e) { e.stopPropagation(); taps = []; show(); });
+  $("#plus").addEventListener("click", function () { bpm = Math.min(300, (bpm || 120) + 1); show(); });
+  $("#minus").addEventListener("click", function () { bpm = Math.max(20, (bpm || 120) - 1); show(); });
+
+  /* ---- metronome: Web Audio lookahead scheduler (solid timing) ---- */
+  var AC = null, metroOn = false, nextBeat = 0, beatN = 0, timer = null;
+  function beatsPerBar() { return +$("#bpb").value || 4; }
+  function drawDots() {
+    var n = beatsPerBar(), h = "";
+    for (var i = 0; i < n; i++) h += '<i class="' + (i === 0 ? "acc" : "") + '"></i>';
+    $("#beats").innerHTML = h;
+  }
+  drawDots();
+  $("#bpb").addEventListener("change", function () { beatN = 0; drawDots(); });
+
+  function click(t, accent) {
+    var o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.value = accent ? 1568 : 1046;         // G6 / C6
+    g.gain.setValueAtTime(accent ? 0.5 : 0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    o.connect(g); g.connect(AC.destination);
+    o.start(t); o.stop(t + 0.06);
+  }
+  function schedule() {
+    var spb = 60 / (bpm || 120);
+    while (nextBeat < AC.currentTime + 0.12) {
+      var acc = (beatN % beatsPerBar()) === 0;
+      click(nextBeat, acc);
+      flashAt(nextBeat, beatN % beatsPerBar());
+      nextBeat += spb; beatN++;
+    }
+  }
+  function flashAt(t, k) {
+    setTimeout(function () {
+      var dots = document.querySelectorAll("#beats i");
+      dots.forEach(function (d) { d.classList.remove("on"); });
+      if (dots[k]) dots[k].classList.add("on");
+    }, Math.max(0, (t - AC.currentTime) * 1000));
+  }
+  function startMetro() {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === "suspended") AC.resume();
+    nextBeat = AC.currentTime + 0.08; beatN = 0;
+    timer = setInterval(schedule, 25);
+    metroOn = true;
+    $("#metro").textContent = "■ stop"; $("#metro").classList.add("on");
+  }
+  function stopMetro() {
+    clearInterval(timer); metroOn = false;
+    document.querySelectorAll("#beats i").forEach(function (d) { d.classList.remove("on"); });
+    $("#metro").textContent = "▶ metronome"; $("#metro").classList.remove("on");
+  }
+  function restartMetro() { clearInterval(timer); nextBeat = AC.currentTime + 0.05; timer = setInterval(schedule, 25); }
+  $("#metro").addEventListener("click", function () { metroOn ? stopMetro() : startMetro(); });
+
+  // keep the screen awake while the metronome runs (best effort)
+  if ("wakeLock" in navigator) {
+    var lock = null;
+    setInterval(function () {
+      if (metroOn && !lock) navigator.wakeLock.request("screen").then(function (l) {
+        lock = l; l.addEventListener("release", function () { lock = null; });
+      }).catch(function () {});
+    }, 3000);
+  }
+
+  show();
+})();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
+</script>
+</body>
+</html>

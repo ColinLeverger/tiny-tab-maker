@@ -25,6 +25,7 @@ code{font-family:var(--mono);background:#eef1f4;padding:0 3px;border-radius:3px;
 .topbar .spacer{flex:1}
 .btn{border:1px solid var(--line2);background:#fff;color:var(--ink);border-radius:7px;
   padding:.4rem .7rem;cursor:pointer;line-height:1;white-space:nowrap}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .btn:hover{background:#f0f2f5}
 .btn.primary{background:var(--accent);border-color:var(--accent-d);color:#fff}
 .btn.primary:hover{background:var(--accent-d)}
@@ -269,6 +270,21 @@ body.stage .pills .pill{cursor:pointer}
 .set-row .num{font-family:var(--mono);font-weight:700;color:var(--accent)}
 .set-row .ttl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .set-row .btn{min-width:44px;min-height:38px}
+.set-row.rest{opacity:.75;cursor:default}
+.set-bar{display:flex;gap:.4rem;align-items:center;margin:.1rem 0 .5rem}
+.set-bar select{flex:1;min-width:0;padding:.45rem .4rem;border:1px solid var(--line2);border-radius:8px;
+  background:#fff;font-size:.95rem}
+.set-rest{margin-top:.7rem;font-size:.72rem;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:.2rem}
+
+/* practice digest */
+.dg-song{margin-bottom:.8rem}
+.dg-title{font-weight:700;color:var(--head);border-bottom:1px solid var(--line);
+  padding-bottom:.15rem;margin-bottom:.25rem}
+#digestBody .rh-row{font-size:.88rem;padding:.22rem .5rem;margin:.2rem 0;
+  border-left:3px solid #9aa1a8;background:#f6f7f9;border-radius:0 6px 6px 0}
+#digestBody .rh-row.red{border-left-color:#d3382f;background:#fdf0ef}
+#digestBody .rh-row.yellow{border-left-color:#e6a700;background:#fdf7e6}
 
 /* =====================================================================
  *  STAGE / READING VIEW — full-screen, device-friendly, editor hidden.
@@ -320,6 +336,12 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
   .topbar,.editor,.modal-bg,.resizer,.stage-nav{display:none !important}
   /* rehearsal scribbles are personal — keep them off the printed booklet */
   .rehearsal,.rdot,.rflag{display:none !important}
+  /* …EXCEPT the practice digest, which is printable on demand */
+  body.digest-printing .layout{display:none !important}
+  body.digest-printing #digestModal{display:block !important;position:static;background:#fff;padding:0}
+  body.digest-printing #digestModal .bsheet{box-shadow:none;border-radius:0;max-width:none;max-height:none;padding:10mm}
+  body.digest-printing #digestModal .bs-head .btn{display:none}
+  body.digest-printing .dg-song{break-inside:avoid}
   .layout{display:block;height:auto}
   .preview-wrap{padding:0;background:#fff;overflow:visible}
   #preview{max-width:none;margin:0}
