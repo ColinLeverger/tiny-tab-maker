@@ -19,6 +19,21 @@
   var STATE = load();
   var UI = { bw: false, compact: false, chordPt: 18, openSong: null };
 
+  // view prefs (compact / B&W / size) persist too, so the preview is correct at
+  // page load without having to re-toggle anything.
+  var UI_KEY = "fg_ui_v1";
+  (function () {
+    try {
+      var u = JSON.parse(localStorage.getItem(UI_KEY) || "null") || {};
+      if (typeof u.bw === "boolean") UI.bw = u.bw;
+      if (typeof u.compact === "boolean") UI.compact = u.compact;
+      if (u.chordPt) UI.chordPt = +u.chordPt || UI.chordPt;
+    } catch (e) {}
+  })();
+  function persistUI() {
+    try { localStorage.setItem(UI_KEY, JSON.stringify({ bw: UI.bw, compact: UI.compact, chordPt: UI.chordPt })); } catch (e) {}
+  }
+
   // ---- auto "last updated": stamp today on the first change of the session ----
   var DATE_TOUCHED = false;
   function touchUpdated() {
@@ -40,6 +55,26 @@
     insert = Math.max(0, Math.min(arr.length, insert));
     arr.splice(insert, 0, it);
     return insert;
+  }
+
+  // ---- undo history (unlimited depth) ----
+  // Structural edits snapshot immediately (pushHistory); a burst of typing in one
+  // field snapshots once — captured on focus, committed on the first keystroke.
+  var history = [];
+  var pendingSnap = null, pendingCommitted = true;
+  function pushHistory() { history.push(clone(STATE)); updateUndoBtn(); }
+  function commitPending() {
+    if (pendingSnap && !pendingCommitted) { history.push(pendingSnap); pendingCommitted = true; updateUndoBtn(); }
+  }
+  function updateUndoBtn() { var b = $("#undoBtn"); if (b) b.disabled = history.length === 0; }
+  function undo() {
+    commitPending();                 // fold an in-progress field edit into history
+    if (!history.length) return;
+    STATE = history.pop();
+    if (UI.openSong != null && UI.openSong >= STATE.songs.length) UI.openSong = null;
+    var an = $("#autoNumToggle"); if (an) an.checked = !!STATE.autoNumber;
+    renderAll();                     // re-render + persist; does NOT push history
+    updateUndoBtn();
   }
 
   // is localStorage usable at all? (some browsers block it on file://)
@@ -169,11 +204,22 @@
   function renderAll() { applyAutoNumber(); renderEditor(); updatePreview(); persist(); }
 
   /* ---------------- editor events ---------------- */
+  // snapshot the state when a field gains focus, so a whole typing burst in that
+  // field becomes a single undo step (committed on the first keystroke).
+  document.addEventListener("focusin", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA") && !t.readOnly &&
+        (t.hasAttribute("data-song") || t.hasAttribute("data-meta"))) {
+      pendingSnap = clone(STATE); pendingCommitted = false;
+    }
+  });
+
   // text inputs: mutate in place, do NOT rebuild editor (keep focus)
   document.addEventListener("input", function (e) {
     var t = e.target;
     if (t.hasAttribute && t.hasAttribute("data-meta")) {
       var mk = t.getAttribute("data-meta");
+      commitPending();
       // editing the date by hand is an explicit override; don't auto-stamp over it
       if (mk === "updated") DATE_TOUCHED = true; else touchUpdated();
       STATE.meta[mk] = t.value; updatePreview(); persist(); return;
@@ -181,6 +227,7 @@
     var si = t.getAttribute && t.getAttribute("data-song");
     if (si == null) return;
     si = +si; var s = STATE.songs[si]; if (!s) return;
+    commitPending();
     touchUpdated();
     if (t.hasAttribute("data-field")) { s[t.getAttribute("data-field")] = t.value; }
     else if (t.hasAttribute("data-ci")) {
@@ -203,19 +250,21 @@
       e.stopPropagation();
       var j = act === "up" ? si - 1 : si + 1;
       if (j < 0 || j >= STATE.songs.length) return;
+      pushHistory();
       var tmp = STATE.songs[si]; STATE.songs[si] = STATE.songs[j]; STATE.songs[j] = tmp;
       if (UI.openSong === si) UI.openSong = j; else if (UI.openSong === j) UI.openSong = si;
       renderAll(); return;
     }
-    if (act === "delSong") { if (confirm("Delete “" + (s.title || "") + "”?")) { STATE.songs.splice(si, 1); UI.openSong = null; renderAll(); } return; }
-    if (act === "addChord") { s.chords.push({ label: "", value: "" }); renderAll(); return; }
-    if (act === "delChord") { s.chords.splice(+btn.getAttribute("data-ci"), 1); renderAll(); return; }
-    if (act === "addRiff") { s.riffs.push({ label: "Riff", note: "", tab: null }); renderAll(); return; }
-    if (act === "delRiff") { s.riffs.splice(+btn.getAttribute("data-ri"), 1); renderAll(); return; }
+    if (act === "delSong") { if (confirm("Delete “" + (s.title || "") + "”?")) { pushHistory(); STATE.songs.splice(si, 1); UI.openSong = null; renderAll(); } return; }
+    if (act === "addChord") { pushHistory(); s.chords.push({ label: "", value: "" }); renderAll(); return; }
+    if (act === "delChord") { pushHistory(); s.chords.splice(+btn.getAttribute("data-ci"), 1); renderAll(); return; }
+    if (act === "addRiff") { pushHistory(); s.riffs.push({ label: "Riff", note: "", tab: null }); renderAll(); return; }
+    if (act === "delRiff") { pushHistory(); s.riffs.splice(+btn.getAttribute("data-ri"), 1); renderAll(); return; }
     if (act === "editTab") { openTabEditor(si, +btn.getAttribute("data-ri")); return; }
   });
 
   $("#addSong").addEventListener("click", function () {
+    pushHistory();
     var n = String(STATE.songs.length + 1).padStart(2, "0");
     STATE.songs.push(FG.emptySong(n)); UI.openSong = STATE.songs.length - 1;
     touchUpdated(); renderAll();
@@ -280,6 +329,7 @@
       var before = isBefore(e, tgt);
       if (type === "song") {
         var to = +tgt.getAttribute("data-card");
+        pushHistory();
         var openObj = UI.openSong != null ? STATE.songs[UI.openSong] : null;
         moveInArray(STATE.songs, DRAG.song, before ? to : to + 1);
         UI.openSong = openObj ? STATE.songs.indexOf(openObj) : null;
@@ -289,6 +339,7 @@
       var s = STATE.songs[DRAG.song];
       if (s && tg && DRAG.ci != null) {
         var toc = +tg.getAttribute("data-ci");
+        pushHistory();
         moveInArray(s.chords, DRAG.ci, before ? toc : toc + 1);
         touchUpdated(); cleanupDrag(); renderAll(); return;
       }
@@ -396,6 +447,7 @@
   $("#tabModal").addEventListener("click", function (e) { if (e.target === $("#tabModal")) closeTab(); });
   $("#tabSave").addEventListener("click", function () {
     if (!TAB) return;
+    pushHistory();
     var r = STATE.songs[TAB.si].riffs[TAB.ri];
     r.tab = TAB.events.length ? clone(TAB.events) : null;
     touchUpdated(); closeTab(); renderAll();
@@ -404,11 +456,22 @@
   /* =====================================================================
    *  TOPBAR: generate, data, options
    * ===================================================================== */
-  $("#chordPt").addEventListener("input", function () { UI.chordPt = +this.value || 12; updatePreview(); });
-  $("#bwToggle").addEventListener("change", function () { UI.bw = this.checked; updatePreview(); });
-  $("#compactToggle").addEventListener("change", function () { UI.compact = this.checked; updatePreview(); });
+  $("#chordPt").addEventListener("input", function () { UI.chordPt = +this.value || 12; persistUI(); updatePreview(); });
+  $("#bwToggle").addEventListener("change", function () { UI.bw = this.checked; persistUI(); updatePreview(); });
+  $("#compactToggle").addEventListener("change", function () { UI.compact = this.checked; persistUI(); updatePreview(); });
   $("#autoNumToggle").addEventListener("change", function () {
-    STATE.autoNumber = this.checked; touchUpdated(); renderAll();
+    pushHistory(); STATE.autoNumber = this.checked; touchUpdated(); renderAll();
+  });
+
+  // undo: button + Ctrl/Cmd+Z (leaves native text-field undo alone while typing)
+  var undoBtn = $("#undoBtn"); if (undoBtn) undoBtn.addEventListener("click", undo);
+  document.addEventListener("keydown", function (e) {
+    if ((e.key === "z" || e.key === "Z") && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+      if (TAB) return;                                   // tab editor open → leave it
+      var ae = document.activeElement;
+      if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return; // native undo
+      e.preventDefault(); undo();
+    }
   });
 
   /* ---------------- resizable editor pane ---------------- */
@@ -456,10 +519,10 @@
       link.href = url; link.download = "songbook-data.json"; link.click();
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     } else if (a === "import") { $("#fileInput").click(); }
-    else if (a === "demo") { if (confirm("Replace the current content with the demo?")) { STATE = clone(FG.DEMO); UI.openSong = null; renderAll(); } }
+    else if (a === "demo") { if (confirm("Replace the current content with the demo?")) { pushHistory(); STATE = clone(FG.DEMO); UI.openSong = null; renderAll(); } }
     else if (a === "wipe") {
       if (confirm("Clear everything (empty songbook)? Export first if needed.")) {
-        STATE = FG.emptyState(); UI.openSong = null; renderAll();
+        pushHistory(); STATE = FG.emptyState(); UI.openSong = null; renderAll();
       }
     }
   });
@@ -472,18 +535,90 @@
         var data = JSON.parse(rd.result);
         if (!data || !Array.isArray(data.songs)) throw new Error("invalid structure");
         if (!data.meta) data.meta = FG.emptyState().meta;
-        STATE = data; UI.openSong = null; renderAll();
+        pushHistory(); STATE = data; UI.openSong = null; renderAll();
       } catch (err) { alert("Import failed: " + err.message); }
     };
     rd.readAsText(f); this.value = "";
   });
 
-  // keyboard: Esc closes modal
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && TAB) closeTab(); });
+  /* =====================================================================
+   *  STAGE / READING VIEW — hide editor, full-screen sheets, song nav
+   * ===================================================================== */
+  function stageSheets() { return $$("#preview .sheet"); }
+  var stageIdx = 0, stageObs = null;
+  function updateStageLabel() {
+    var el = $("#stageLabel"); if (!el) return;
+    var sh = stageSheets(), cur = sh[stageIdx];
+    var name = cur && cur.classList.contains("cover") ? "Cover"
+      : (cur && cur.querySelector(".fh-title") ? cur.querySelector(".fh-title").textContent : "");
+    el.textContent = sh.length ? (stageIdx + 1) + " / " + sh.length + (name ? " · " + name : "") : "";
+  }
+  function stageGo(i, instant) {
+    var sh = stageSheets(); if (!sh.length) return;
+    stageIdx = Math.max(0, Math.min(sh.length - 1, i));
+    var el = sh[stageIdx];
+    if (el && el.scrollIntoView) el.scrollIntoView({ behavior: instant ? "auto" : "smooth", block: "start" });
+    updateStageLabel();
+  }
+  function buildStageObs() {
+    if (stageObs) { stageObs.disconnect(); stageObs = null; }
+    if (typeof IntersectionObserver === "undefined") return;
+    var sh = stageSheets();
+    stageObs = new IntersectionObserver(function (ents) {
+      ents.forEach(function (en) {
+        if (en.isIntersecting) { var i = sh.indexOf(en.target); if (i >= 0) { stageIdx = i; updateStageLabel(); } }
+      });
+    }, { rootMargin: "-45% 0px -45% 0px", threshold: 0 });
+    sh.forEach(function (s) { stageObs.observe(s); });
+  }
+  function enterStage() {
+    document.body.classList.add("stage");
+    var apply = function () {
+      var sh = stageSheets();
+      if (!sh.length) return false;                  // preview not rendered yet
+      if (stageIdx <= 0) {                            // first entry: jump to the first song
+        var fi = sh.findIndex(function (s) { return s.classList.contains("songsheet"); });
+        stageIdx = fi > 0 ? fi : 0;
+      }
+      buildStageObs();
+      stageGo(stageIdx, true);
+      return true;
+    };
+    if (!apply()) setTimeout(apply, 200);            // retry once the debounced preview lands
+  }
+  function exitStage() {
+    document.body.classList.remove("stage");
+    if (stageObs) { stageObs.disconnect(); stageObs = null; }
+  }
+  function toggleStage() { document.body.classList.contains("stage") ? exitStage() : enterStage(); }
+
+  var viewBtn = $("#viewBtn"); if (viewBtn) viewBtn.addEventListener("click", toggleStage);
+  var sPrev = $("#stagePrev"); if (sPrev) sPrev.addEventListener("click", function () { stageGo(stageIdx - 1); });
+  var sNext = $("#stageNext"); if (sNext) sNext.addEventListener("click", function () { stageGo(stageIdx + 1); });
+  var sExit = $("#stageExit"); if (sExit) sExit.addEventListener("click", exitStage);
+
+  // keyboard: Esc closes modal / leaves View; arrows flip songs in View mode
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      if (TAB) { closeTab(); return; }
+      if (document.body.classList.contains("stage")) { exitStage(); return; }
+    }
+    if (document.body.classList.contains("stage") && !TAB) {
+      var ae = document.activeElement;
+      if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") { e.preventDefault(); stageGo(stageIdx + 1); }
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") { e.preventDefault(); stageGo(stageIdx - 1); }
+    }
+  });
 
   /* ---------------- boot ---------------- */
+  // reflect the restored view prefs onto the controls BEFORE first render, so the
+  // preview matches the saved Compact / B&W / Size even straight from cache.
   $("#chordPt").value = UI.chordPt;
+  $("#compactToggle").checked = UI.compact;
+  $("#bwToggle").checked = UI.bw;
   $("#autoNumToggle").checked = !!STATE.autoNumber;
+  updateUndoBtn();
   renderAll();
   if (!STORAGE_OK) setStatus("⚠︎ browser storage unavailable — use Export", true);
   else if (RESTORED) setStatus("✓ Restored from browser");

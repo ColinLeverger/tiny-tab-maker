@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tiny Tab Maker</title>
 <meta name="description" content="Tiny static editor: song structure → chords → tabs → printable PDF. Hostable on GitHub Pages.">
 <link rel="stylesheet" href="css/styles.css">
@@ -27,6 +27,9 @@
   </label>
   <span id="pageCount" class="pagecount" title="Pages in the generated PDF (current settings)"></span>
   <span id="saveStatus" class="savestat" title="Your data stays in this browser, even after closing"></span>
+
+  <button class="btn ghost" id="undoBtn" title="Undo last change (Ctrl/Cmd+Z)" disabled>↶ Undo</button>
+  <button class="btn ghost" id="viewBtn" title="Full-screen reading view — hide the editor and flip through songs">⛶ View</button>
 
   <div class="menu">
     <button class="btn primary" id="genBtn">Generate ▾</button>
@@ -102,6 +105,14 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- ===== STAGE / READING-VIEW NAV (floating; shown only in View mode) ===== -->
+<div class="stage-nav" id="stageNav" aria-hidden="true">
+  <button class="btn nav" id="stagePrev" title="Previous song (←)">◀</button>
+  <span id="stageLabel" class="stage-label"></span>
+  <button class="btn nav" id="stageNext" title="Next song (→)">▶</button>
+  <button class="btn nav exit" id="stageExit" title="Back to editor (Esc)">✕ Edit</button>
 </div>
 
 <!-- jsPDF + autotable (CDN, fine for GitHub Pages) -->
