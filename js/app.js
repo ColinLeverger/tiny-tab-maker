@@ -17,7 +17,7 @@
 
   var RESTORED = false;
   var STATE = load();
-  var UI = { bw: false, compact: false, chordPt: 18, openSong: null, allSets: false };
+  var UI = { bw: false, compact: false, chordPt: 18, openSong: null, allSets: false, gig: false };
 
   // view prefs (compact / B&W / size) persist too, so the preview is correct at
   // page load without having to re-toggle anything.
@@ -28,11 +28,12 @@
       if (typeof u.bw === "boolean") UI.bw = u.bw;
       if (typeof u.compact === "boolean") UI.compact = u.compact;
       if (typeof u.allSets === "boolean") UI.allSets = u.allSets;
+      if (typeof u.gig === "boolean") UI.gig = u.gig;
       if (u.chordPt) UI.chordPt = +u.chordPt || UI.chordPt;
     } catch (e) {}
   })();
   function persistUI() {
-    try { localStorage.setItem(UI_KEY, JSON.stringify({ bw: UI.bw, compact: UI.compact, chordPt: UI.chordPt, allSets: UI.allSets })); } catch (e) {}
+    try { localStorage.setItem(UI_KEY, JSON.stringify({ bw: UI.bw, compact: UI.compact, chordPt: UI.chordPt, allSets: UI.allSets, gig: UI.gig })); } catch (e) {}
   }
 
   // ---- auto "last updated": stamp today on the first change of the session ----
@@ -477,6 +478,8 @@
   function tapPadHide() {
     if (!TAPT) return;
     clearTimeout(TAPT.t10); clearTimeout(TAPT.tIdle);
+    rhyStop();
+    $("#tpRhyBox").hidden = true;
     TAPT = null;
     var pad = $("#tapPad");
     pad.classList.remove("open");
@@ -525,7 +528,181 @@
       }
     }
   }
+  /* ---- rhythm recorder: count-in 1 bar, tap 2 bars, quantize to 16ths ---- */
+  var RHY = null; // { bpm,bpb,spb,ac,t0,recStart,taps,timer,doneT }
+  function rhyNow() { return RHY && RHY.ac ? RHY.ac.currentTime : performance.now() / 1000; }
+  function rhyClick(ac, t, accent) {
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = accent ? 1568 : 1046;
+    g.gain.setValueAtTime(accent ? 0.5 : 0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    o.connect(g); g.connect(ac.destination);
+    o.start(t); o.stop(t + 0.06);
+  }
+  function rhyStop() {
+    if (!RHY) return;
+    clearInterval(RHY.timer); clearTimeout(RHY.doneT);
+    if (RHY.ac && RHY.ac.close) RHY.ac.close().catch(function () {});
+    RHY = null;
+  }
+  function rhythmStart() {
+    if (!TAPT) return;
+    rhyStop();
+    RHYRES = null;
+    $("#tpRhyBox").hidden = true;
+    clearTimeout(TAPT.tIdle); clearTimeout(TAPT.t10);   // tempo timers off while recording
+    var s = STATE.songs[TAPT.si];
+    var bpm = tapBpm(TAPT.taps);
+    if (!bpm && s && s.tempo) { var tm = String(s.tempo).match(/\d+/); if (tm) bpm = +tm[0]; }
+    if (!bpm) { $("#tpCount").textContent = "tap a tempo first (or set the song's Tempo)"; return; }
+    bpm = Math.max(30, Math.min(260, Math.round(bpm)));
+    var bpb = 4;
+    if (s && s.meter) { var mm = String(s.meter).match(/^(\d+)/); if (mm && (mm[1] === "3" || mm[1] === "6")) bpb = +mm[1]; }
+    var AC = (root.AudioContext || root.webkitAudioContext) ? new (root.AudioContext || root.webkitAudioContext)() : null;
+    var spb = 60 / bpm, bars = 2;
+    RHY = { bpm: bpm, bpb: bpb, spb: spb, bars: bars, ac: AC, taps: [], timer: null, doneT: null };
+    var t0 = rhyNow() + 0.2;
+    RHY.recStart = t0 + bpb * spb;                      // after one count-in bar
+    RHY.recEnd = RHY.recStart + bars * bpb * spb;
+    if (AC) for (var i = 0; i < bpb * (bars + 1); i++) rhyClick(AC, t0 + i * spb, i % bpb === 0);
+    $("#tpBpm").textContent = String(bpm);
+    RHY.timer = setInterval(function () {
+      if (!RHY) return;
+      var n = rhyNow();
+      if (n < RHY.recStart) $("#tpCount").textContent = "count-in… " + Math.ceil((RHY.recStart - n) / spb);
+      else $("#tpCount").textContent = "● REC bar " + Math.min(bars, 1 + Math.floor((n - RHY.recStart) / (spb * bpb))) + "/" + bars;
+    }, 90);
+    RHY.doneT = setTimeout(rhythmFinish, (RHY.recEnd - rhyNow() + 0.35) * 1000);
+  }
+  /* Quantize with mercy:
+   *  1. the tapper's systematic lag (audio+touch latency, ~60-120ms) is
+   *     estimated as the MEDIAN deviation from the grid and subtracted —
+   *     the grid meets the player, not the reverse;
+   *  2. both a straight-16th grid and a triplet grid are tried, the one
+   *     with less residual error wins (slight bias to straight on ties).
+   * The result lands in an editable slot grid before being applied. */
+  var RHYRES = null; // { slots:[bool], div:4|3, bpm, bpb, bars }
+  // deviations live on a circle (a tap half a slot late ≡ half a slot early
+  // to the next) -> the systematic lag must be a CIRCULAR mean, then
+  // normalized to "late" (players lag behind the click, they don't rush
+  // half a grid ahead).
+  function gridFit(rel, div, bpb, bars) {
+    var units = rel.map(function (u) { return u * div; });
+    var s = 0, c = 0;
+    units.forEach(function (x) {
+      var v = 2 * Math.PI * (x - Math.round(x));
+      s += Math.sin(v); c += Math.cos(v);
+    });
+    var off = Math.atan2(s, c) / (2 * Math.PI);
+    if (off < -0.15) off += 1;
+    var err = 0, slots = {};
+    units.forEach(function (x) {
+      var r = x - off, sl = Math.round(r);
+      err += Math.abs(r - sl);
+      if (sl >= 0 && sl < bpb * div * bars) slots[sl] = 1;
+    });
+    // err normalized to TIME (beats), not slot units — otherwise the coarser
+    // triplet grid always "wins" on-beat taps by pure unit trickery
+    return { slots: slots, err: (err / units.length) / div };
+  }
+  function rhythmFinish() {
+    if (!RHY) return;
+    var spb = RHY.spb, bpb = RHY.bpb, bars = RHY.bars, bpm = RHY.bpm;
+    var rel = RHY.taps.map(function (t) { return (t - RHY.recStart) / spb; })
+      .filter(function (u) { return u > -0.35 && u < bpb * bars + 0.35; });
+    rhyStop();
+    if (!rel.length) { $("#tpCount").textContent = "no taps caught — ↻ to retry"; return; }
+    // straight 16ths by DEFAULT; the triplet grid only wins if it fits
+    // clearly better AND produced genuine off-beat triplet onsets
+    var f4 = gridFit(rel, 4, bpb, bars);
+    var f3 = gridFit(rel, 3, bpb, bars);
+    var hasTripletOnsets = Object.keys(f3.slots).some(function (k) { return k % 3 !== 0; });
+    var best = (hasTripletOnsets && f3.err < f4.err * 0.7)
+      ? { div: 3, slots: f3.slots }
+      : { div: 4, slots: f4.slots };
+    var arr = new Array(bpb * best.div * bars);
+    Object.keys(best.slots).forEach(function (k) { arr[+k] = true; });
+    RHYRES = { slots: arr, div: best.div, bpm: bpm, bpb: bpb, bars: bars };
+    $("#tpCount").textContent = rel.length + " taps · " +
+      (best.div === 4 ? "16th grid" : "TRIPLET grid") + " · timing auto-corrected — tap cells to fix";
+    renderRhyUI();
+  }
+
+  /* editable grid + pattern + notation. Tokens/SVG live in data.js (shared
+   * with the sheet renderers), the pad just feeds them its slots. */
+  function rhyPattern() {
+    var d = RHYRES.div, per = RHYRES.bpb * d, bars = [];
+    for (var b = 0; b < RHYRES.bars; b++) {
+      var beats = [];
+      for (var bt = 0; bt < RHYRES.bpb; bt++) {
+        var cell = "";
+        for (var k = 0; k < d; k++) cell += RHYRES.slots[b * per + bt * d + k] ? "x" : "·";
+        beats.push(cell);
+      }
+      bars.push(beats.join(" "));
+    }
+    return bars.join(" | ");
+  }
+  function rhyMeta() {
+    return "(" + RHYRES.bpm + " BPM · " + RHYRES.bpb + "/4 · " +
+      (RHYRES.div === 4 ? "16th" : "triplet") + " grid)";
+  }
+  function rhyText() {
+    if (!RHYRES) return "";
+    return rhyPattern() + "\n" + rhyMeta();
+  }
+  function renderRhyUI() {
+    if (!RHYRES) return;
+    var d = RHYRES.div, per = RHYRES.bpb * d, html = "";
+    for (var b = 0; b < RHYRES.bars; b++) {
+      html += '<div class="rhy-bar">';
+      for (var i = 0; i < per; i++) {
+        var gi = b * per + i;
+        html += '<button class="rhy-c' + (RHYRES.slots[gi] ? " on" : "") +
+          (i % d === 0 && i > 0 ? " beat-start" : "") + '" data-slot="' + gi + '">' +
+          (RHYRES.slots[gi] ? "x" : "·") + "</button>";
+      }
+      html += "</div>";
+    }
+    $("#tpRhyGrid").innerHTML = html;
+    $("#tpRhyNotes").innerHTML = FG.rhythmSVG(RHYRES.slots, RHYRES.div, RHYRES.bpb, { ink: "#e6edf3", accent: "#ffd27a" });
+    $("#tpRhyOut").textContent = rhyText();
+    $("#tpRhyBox").hidden = false;
+  }
+  $("#tpRhyGrid").addEventListener("click", function (e) {
+    var c = e.target.closest("[data-slot]"); if (!c || !RHYRES) return;
+    var k = +c.getAttribute("data-slot");
+    RHYRES.slots[k] = !RHYRES.slots[k];
+    renderRhyUI();
+  });
+  $("#tpRhythm").addEventListener("click", rhythmStart);
+  $("#tpRhyAgain").addEventListener("click", rhythmStart);
+  $("#tpRhyCopy").addEventListener("click", function () {
+    var txt = $("#tpRhyOut").textContent;
+    var done = function () { setStatus("✓ Rhythm copied"); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, function () { prompt("Copy:", txt); });
+    else prompt("Copy:", txt);
+  });
+  $("#tpRhyNote").addEventListener("click", function () {
+    if (!TAPT || !RHYRES) return;
+    var s = STATE.songs[TAPT.si]; if (!s) return;
+    // machine-parseable line: every view re-draws it as SVG notation
+    var line = "🎵 " + rhyPattern() + " " + rhyMeta();
+    pushHistory();
+    s.rehearsal = s.rehearsal || {};
+    var e = s.rehearsal.__song = s.rehearsal.__song || {};
+    e.note = e.note ? e.note + "\n" + line : line;
+    touchUpdated(); persist(); updatePreview(); renderEditor();
+    setStatus("✓ Rhythm pushed as a song note");
+  });
+
   function tpTap() {
+    if (RHY) {                                           // rhythm mode: collect beats
+      RHY.taps.push(rhyNow());
+      var pad0 = $("#tpHit");
+      pad0.classList.add("hit"); setTimeout(function () { pad0.classList.remove("hit"); }, 60);
+      return;
+    }
     if (!TAPT) return;
     if (!TAPT.taps.length) TAPT.t10 = setTimeout(tapTempoFinish, 10000);
     TAPT.taps.push(performance.now());
@@ -548,6 +725,7 @@
   function tapPadDismiss(e) {
     if (!TAPT || Date.now() - TAPT.opened < 350) return;   // ignore the opening click
     if (e.target && e.target.closest && e.target.closest("#tapPad")) return;
+    if (RHY) { tapPadHide(); return; }                     // mid-recording: just cancel
     if (TAPT.taps.length >= 3) tapTempoFinish(); else tapPadHide();
   }
   document.addEventListener("scroll", tapPadDismiss, true);
@@ -1030,8 +1208,27 @@
     if (window.scrollTo) window.scrollTo(0, 0);      // start at the top of the new song
     var wrap = $(".preview-wrap"); if (wrap) wrap.scrollTop = 0;
   }
+  /* ---- gig night mode: dark inverted sheet, chords only, screen awake ---- */
+  var gigWake = null;
+  function applyGig() {
+    document.body.classList.toggle("gig", !!UI.gig && document.body.classList.contains("stage"));
+    var b = $("#stageGig"); if (b) b.classList.toggle("on", !!UI.gig);
+    if (UI.gig && document.body.classList.contains("stage")) {
+      if (navigator.wakeLock && !gigWake)
+        navigator.wakeLock.request("screen").then(function (l) {
+          gigWake = l; l.addEventListener("release", function () { gigWake = null; });
+        }).catch(function () {});
+    } else if (gigWake) { gigWake.release().catch(function () {}); gigWake = null; }
+    if (document.body.classList.contains("stage")) renderStageCurrent(); // heights change
+  }
+  var stageGigBtn = $("#stageGig");
+  if (stageGigBtn) stageGigBtn.addEventListener("click", function () {
+    UI.gig = !UI.gig; persistUI(); applyGig();
+  });
+
   function enterStage() {
     document.body.classList.add("stage");
+    applyGig();
     var sh = stageSheets();
     if (stageIdx <= 0) {                             // first entry: jump to the first song
       var fi = sh.findIndex(function (s) { return s.classList.contains("songsheet"); });
@@ -1043,6 +1240,8 @@
   function exitStage() {
     document.body.classList.remove("stage");
     document.body.classList.remove("stage-portrait");
+    document.body.classList.remove("gig");
+    if (gigWake) { gigWake.release().catch(function () {}); gigWake = null; }
     $$("#preview .sheet").forEach(function (s) {
       s.classList.remove("stage-current");
       s.style.transform = ""; s.style.transformOrigin = ""; s.style.width = "";
@@ -1125,7 +1324,7 @@
     $("#rhNotes").innerHTML = lines.map(function (ln, k) {
       return '<div class="rh-note-row" data-k="' + k + '" title="Tap to edit">' +
         '<span class="rh-n">' + noteNum(k) + "</span>" +
-        "<span>" + esc(ln) + "</span>" +
+        "<span>" + FG.rhNoteHTML(ln) + "</span>" +
         '<span class="rh-pen">✎</span>' +
         '<button class="btn sm danger" data-ln="' + k + '" title="Delete this note">✕</button></div>';
     }).join("");
@@ -1356,15 +1555,15 @@
       });
     });
   }
-  // TTL sweep + orphans (memos of deleted songs) — ran once at boot
+  // TTL sweep — ran once at boot. ONLY age-based on purpose: sweeping
+  // "orphans" (memos whose song isn't in STATE) would destroy real memos the
+  // moment the user loads the demo or imports another book. Orphans die of
+  // old age like everything else here.
   function memoSweep() {
     if (!memoOK) return;
     var cut = Date.now() - MEMO_TTL_DAYS * 864e5;
-    var live = {}; STATE.songs.forEach(function (s) { if (s.id) live[s.id] = 1; });
     mall().then(function (list) {
-      list.forEach(function (m) {
-        if (m.created < cut || !live[m.songId]) mdel(m.id);
-      });
+      list.forEach(function (m) { if (m.created < cut) mdel(m.id); });
     }).catch(function () {});
   }
   function memoDaysLeft(m) {
@@ -1682,7 +1881,7 @@
           var e = kv[1];
           var lines = (e.note || "").split("\n").filter(Boolean);
           var notes = lines.map(function (ln, k) {
-            return '<span class="rh-nn">' + noteNum(k) + "</span> " + esc(ln);
+            return '<span class="rh-nn">' + noteNum(k) + "</span> " + FG.rhNoteHTML(ln);
           }).join("<br>");
           return '<div class="rh-row' + (e.c ? " " + e.c : "") + '"><b>' +
             esc(rhLabel(kv[0])) + "</b>" + (notes ? " — " + notes : "") + "</div>";
@@ -1760,7 +1959,7 @@
     var lines = (e.note || "").split("\n").filter(Boolean);
     var noteHtml = lines.map(function (ln, k) {
       return '<div class="rh-note-row"><span class="rh-n">' + noteNum(k) + "</span>" +
-        "<span>" + esc(ln) + "</span>" +
+        "<span>" + FG.rhNoteHTML(ln) + "</span>" +
         '<button class="btn sm" data-rvcp="' + k + '" title="Copy this note — ready to paste into a field">⧉</button>' +
         '<button class="btn sm danger" data-rvln="' + k + '" title="Delete this note line">✕</button></div>';
     }).join("") || '<div class="rh-note-row"><span></span><span style="color:var(--muted)">(mark only, no text)</span></div>';

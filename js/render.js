@@ -37,6 +37,37 @@
     return out;
   }
   function noteNum(k) { var n = k + 1; return "#" + (n < 10 ? "0" + n : n); }
+  // one rehearsal-note line -> HTML. A "🎵 x··· …" rhythm line is re-drawn
+  // as real notation (SVG, barlines included) instead of raw pattern text.
+  function rhNoteHTML(ln, ink) {
+    var p = FG.parseRhythmLine && FG.parseRhythmLine(ln);
+    if (!p) return esc(ln);
+    return '<span class="rh-rhy">' + FG.rhythmSVG(p.slots, p.div, p.bpb, { ink: ink || "#333", h: 26 }) + "</span>" +
+      (p.bpm ? ' <span class="rh-rmeta">' + p.bpm + " BPM</span>" : "");
+  }
+  // Render ANY embedded "🎵 x··· … (… grid)" rhythm token(s) sitting inside an
+  // arbitrary text value (chord value, notes, breaks, tab note) as inline SVG
+  // notation; everything else is escaped as-is. This is what lets a rhythm you
+  // tap + paste draw everywhere, not only in the rehearsal block.
+  var RHY_RE = /🎵[ \t]*[x·|\s]*(?:\(\s*\d+\s*BPM\s*·\s*\d+\/4\s*·\s*(?:16th|triplet)\s*grid\s*\))?/g;
+  function inlineRhy(text, ink, h) {
+    text = String(text == null ? "" : text);
+    if (text.indexOf("🎵") < 0 || !FG.parseRhythmLine) return esc(text);
+    var out = "", last = 0, m;
+    RHY_RE.lastIndex = 0;
+    while ((m = RHY_RE.exec(text))) {
+      if (m[0].length === 0) { RHY_RE.lastIndex++; continue; }   // never stall
+      var p = FG.parseRhythmLine(m[0]);
+      if (!p) continue;                                          // 🎵 with no beats -> leave as text
+      out += esc(text.slice(last, m.index)) +
+        '<span class="rh-rhy">' +
+        FG.rhythmSVG(p.slots, p.div, p.bpb, { ink: ink || "#333", h: h || 26 }) +
+        "</span>" +
+        (p.bpm ? ' <span class="rh-rmeta">' + p.bpm + " BPM</span>" : "");
+      last = m.index + m[0].length;
+    }
+    return out + esc(text.slice(last));
+  }
   function rhBlock(s) {
     var es = rhEntries(s);
     if (!es.length) return "";
@@ -45,7 +76,7 @@
         var e = kv[1];
         var lines = (e.note || "").split("\n").filter(Boolean);
         var notes = lines.map(function (ln, k) {
-          return '<span class="rh-nn">' + noteNum(k) + "</span> " + esc(ln);
+          return '<span class="rh-nn">' + noteNum(k) + "</span> " + rhNoteHTML(ln);
         }).join("<br>");
         return '<div class="rh-row' + (e.c ? " " + e.c : "") + '"><b>' +
           (kv[0] === "__song" ? "♪ Song" : esc(kv[0])) + "</b>" +
@@ -109,7 +140,7 @@
     var count = FG.repeatCount(riff.tab);
     var note = riff.note || (count ? "×" + count : "");
     var head = '<div class="tab-head"><b>Tab — ' + esc(riff.label || "Riff") + "</b>" +
-      (note ? ' <span class="tab-note">(' + esc(note) + ")</span>" : "") + "</div>";
+      (note ? ' <span class="tab-note">(' + inlineRhy(note, "#666", 22) + ")</span>" : "") + "</div>";
     var pre = blocks.map(function (b) { return esc(b.join("\n")); }).join("\n\n");
     return head + '<pre class="tab">' + pre + "</pre>";
   }
@@ -144,7 +175,7 @@
           return "<tr>" +
             '<td class="cl" style="background:' + bg + ";border-left:3px solid " + ink +
               ';color:' + (bw ? "#111" : "#222") + '">' + esc(c.label || "") + "</td>" +
-            '<td class="cv">' + esc(c.value || "") + "</td></tr>";
+            '<td class="cv">' + inlineRhy(c.value || "") + "</td></tr>";
         }).join("") + "</table>";
     }
 
@@ -154,7 +185,7 @@
     var extraHtml = extra.map(function (e) {
       var muted = (e[1] === "N/A" || e[1] === "—");
       return '<div class="kv' + (muted ? " muted" : "") + '"><b>' + esc(e[0]) +
-        "</b> : " + esc(e[1]) + "</div>";
+        "</b> : " + inlineRhy(e[1]) + "</div>";
     }).join("");
 
     var tabs = (s.riffs || []).map(function (r) { return tabHtml(r, chordPt); }).join("");
@@ -193,4 +224,5 @@
 
   FG.renderPreview = renderPreview;
   FG.fillOf = fillOf; FG.inkOf = inkOf; FG.rhEntries = rhEntries;
+  FG.rhNoteHTML = rhNoteHTML;
 })(typeof window !== "undefined" ? window : globalThis);

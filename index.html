@@ -131,6 +131,7 @@
   <button class="btn nav" id="stagePrev" title="Previous song (←)">◀</button>
   <span id="stageLabel" class="stage-label"></span>
   <button class="btn nav" id="stageNext" title="Next song (→)">▶</button>
+  <button class="btn nav" id="stageGig" title="Gig night mode — dark sheet, chords only, big; screen stays awake">🌙</button>
   <button class="btn nav" id="stageMark" title="Rehearsal mark / note (tip: tap a section pill directly)">🖍</button>
   <button class="btn nav" id="stageSet" title="Setlist — jump / reorder / share">☰</button>
   <button class="btn nav exit" id="stageExit" title="Back to editor (Esc)">✕ Edit</button>
@@ -210,7 +211,18 @@
 <div class="tap-pad" id="tapPad">
   <div class="tp-info"><span id="tpBpm">—</span><span id="tpCount"></span></div>
   <button id="tpHit">TAP</button>
+  <div class="tp-rhy" id="tpRhyBox" hidden>
+    <div id="tpRhyGrid" title="Tap a cell to add/remove a hit — fix what the quantizer misheard"></div>
+    <div id="tpRhyNotes" title="The rhythm in real note values"></div>
+    <code id="tpRhyOut"></code>
+    <div class="tp-actions">
+      <button class="btn" id="tpRhyCopy" title="Copy the pattern — paste it anywhere">⧉ Copy</button>
+      <button class="btn" id="tpRhyNote" title="Push the pattern as a rehearsal note on this song">＋ Note</button>
+      <button class="btn" id="tpRhyAgain" title="Record again">↻</button>
+    </div>
+  </div>
   <div class="tp-actions">
+    <button class="btn" id="tpRhythm" title="Count-in of one bar, then tap the RHYTHM for 2 bars — quantized to 16ths at the tapped (or song's) tempo">🎵 Rhythm</button>
     <button class="btn" id="tpCancel">Cancel</button>
     <button class="btn primary" id="tpDone">Done</button>
   </div>

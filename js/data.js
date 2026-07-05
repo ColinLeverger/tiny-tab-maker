@@ -226,6 +226,120 @@
     return renderTab(events, opts).map(function (b) { return b.join("\n"); }).join("\n\n");
   }
 
+  /* ---------- rhythm notation (pure, shared by pad + sheets) ----------
+   * slots = bool array on a 16th (div=4) or triplet (div=3) grid.
+   * Tokens: {h:'w|h|q0|q1|q2', dot, t3, tie} notes, {bar:1} barlines,
+   * {rest:1} leading silence. SVG is drawn (no font roulette).
+   */
+  var RTOK4 = { 1: { h: "q2" }, 2: { h: "q1" }, 3: { h: "q1", dot: 1 }, 4: { h: "q0" } };
+  var RTOK3 = { 1: { h: "q1", t3: 1 }, 2: { h: "q0", t3: 1 }, 3: { h: "q0" } };
+  // Notes are capped at ONE BEAT; the space to the next onset becomes REAL
+  // RESTS (taps are percussive — silences must show). The final note's value
+  // copies the PREVIOUS gap (local feel), not a global average.
+  function rhythmTokens(slots, div, bpb) {
+    var N = slots.length, on = [];
+    for (var i0 = 0; i0 < N; i0++) if (slots[i0]) on.push(i0);
+    if (!on.length) return [];
+    var MAP = div === 4 ? RTOK4 : RTOK3;
+    var restKeys = div === 4 ? [16, 8, 4, 2, 1] : [12, 6, 3, 1];
+    var restH = div === 4 ? { 16: "w", 8: "h", 4: "q0", 2: "q1", 1: "q2" }
+                          : { 12: "w", 6: "h", 3: "q0", 1: "q1" };
+    var perBar = bpb * div, toks = [];
+    function pushRests(dur) {
+      var rem = dur;
+      while (rem > 0) {
+        var kk = null;
+        for (var j = 0; j < restKeys.length; j++) if (restKeys[j] <= rem) { kk = restKeys[j]; break; }
+        toks.push({ rest: 1, h: restH[kk], t3: (div === 3 && kk === 1) ? 1 : 0 });
+        rem -= kk;
+      }
+    }
+    // silence walker: emits rests, inserting barlines at bar boundaries
+    function walkSilence(p, q) {
+      while (p < q) {
+        if (p % perBar === 0 && p > 0 && !(toks.length && toks[toks.length - 1].bar))
+          toks.push({ bar: 1 });                    // rest run hits/starts a barline
+        var nb = (Math.floor(p / perBar) + 1) * perBar;
+        var chunk = Math.min(q, nb) - p;
+        if (chunk > 0) pushRests(chunk);
+        p += chunk;
+      }
+    }
+    if (on[0] > 0) walkSilence(0, on[0]);
+    var lastEnd = N;
+    for (var i = 0; i < on.length; i++) {
+      // barline right before a note that starts a new bar (no rest in between)
+      if (on[i] > 0 && on[i] % perBar === 0 &&
+          !(toks.length && toks[toks.length - 1].bar)) toks.push({ bar: 1 });
+      var full = (i + 1 < on.length) ? (on[i + 1] - on[i])
+        : Math.min(N - on[i], (i > 0 ? on[i] - on[i - 1] : div));
+      var dur = Math.min(full, div);                // cap at one beat
+      var tk0 = MAP[dur] || MAP[1];
+      toks.push({ h: tk0.h, dot: tk0.dot, t3: tk0.t3 });
+      if (i + 1 < on.length && full > dur) walkSilence(on[i] + dur, on[i + 1]);
+      if (i + 1 === on.length) lastEnd = on[i] + dur;
+    }
+    walkSilence(lastEnd, N);                        // the LAST silence counts too
+    return toks;
+  }
+  function rhythmSVG(slots, div, bpb, opts) {
+    opts = opts || {};
+    var INK = opts.ink || "#1b1f24";
+    var toks = rhythmTokens(slots, div, bpb);
+    if (!toks.length) return "";
+    var x = 6, parts = [];
+    toks.forEach(function (tk) {
+      if (tk.rest) {                                  // drawn rest glyphs
+        var rx = x + 4, g = ['<g class="rst" opacity=".75">'];
+        if (tk.h === "w")       g.push('<rect x="' + (rx - 4) + '" y="13" width="9" height="3.6" fill="' + INK + '"/>');
+        else if (tk.h === "h")  g.push('<rect x="' + (rx - 4) + '" y="17.5" width="9" height="3.6" fill="' + INK + '"/>');
+        else if (tk.h === "q0") g.push('<path d="M ' + (rx - 1) + ' 10 l 4 5 -4 5 4 5 q -6 -1 -3 5" fill="none" stroke="' + INK + '" stroke-width="1.7"/>');
+        else {                                        // eighth / sixteenth rest: hooked slash
+          var hooks = tk.h === "q2" ? 2 : 1;
+          g.push('<line x1="' + (rx + 3) + '" y1="12" x2="' + (rx - 2) + '" y2="28" stroke="' + INK + '" stroke-width="1.5"/>');
+          for (var hK = 0; hK < hooks; hK++)
+            g.push('<circle cx="' + (rx - 2 + hK) + '" cy="' + (14 + hK * 5) + '" r="1.9" fill="' + INK + '"/>' +
+                   '<path d="M ' + (rx - 2 + hK) + " " + (14 + hK * 5) + " Q " + (rx + 3) + " " + (16 + hK * 5) + " " + (rx + 3 - hK) + " " + (12.5 + hK * 5) + '" fill="none" stroke="' + INK + '" stroke-width="1.2"/>');
+        }
+        if (tk.t3) g.push('<text x="' + (rx - 3) + '" y="7" font-size="9" fill="' + (opts.accent || "#b98600") + '">3</text>');
+        g.push("</g>");
+        parts.push(g.join(""));
+        x += 17; return;
+      }
+      if (tk.bar) { parts.push('<line x1="' + (x + 2) + '" y1="6" x2="' + (x + 2) + '" y2="32" stroke="' + INK + '" stroke-width="1.6" opacity=".55"/>'); x += 11; return; }
+      var hx = x + 5, hy = 26;
+      var hollow = tk.h === "h" || tk.h === "w";
+      parts.push('<ellipse cx="' + hx + '" cy="' + hy + '" rx="4.6" ry="3.4" transform="rotate(-18 ' + hx + " " + hy + ')" fill="' + (hollow ? "none" : INK) + '" stroke="' + INK + '" stroke-width="1.4"/>');
+      if (tk.h !== "w")
+        parts.push('<line x1="' + (hx + 4.3) + '" y1="' + (hy - 1) + '" x2="' + (hx + 4.3) + '" y2="' + (hy - 17) + '" stroke="' + INK + '" stroke-width="1.4"/>');
+      var flags = tk.h === "q1" ? 1 : tk.h === "q2" ? 2 : 0;
+      for (var f = 0; f < flags; f++)
+        parts.push('<path d="M ' + (hx + 4.3) + " " + (hy - 17 + f * 5) + ' q 7 3 4.5 10" fill="none" stroke="' + INK + '" stroke-width="1.6"/>');
+      if (tk.dot) parts.push('<circle cx="' + (hx + 9.5) + '" cy="' + hy + '" r="1.7" fill="' + INK + '"/>');
+      if (tk.t3) parts.push('<text x="' + (hx + 1) + '" y="7" font-size="9" fill="' + (opts.accent || "#b98600") + '">3</text>');
+      if (tk.tie) parts.push('<path d="M ' + (hx + 6) + " " + (hy + 7) + ' q 8 6 17 0" fill="none" stroke="' + INK + '" stroke-width="1.2"/>');
+      x += 23;
+    });
+    var h = opts.h || 36;
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + (x + 4) + '" height="' + h +
+      '" viewBox="0 0 ' + (x + 4) + ' 36" preserveAspectRatio="xMinYMid meet" style="height:' + h + 'px">' + parts.join("") + "</svg>";
+  }
+  // a pushed rhythm note is plain text like:
+  //   🎵 x··· ··x· | x··· ···· (120 BPM · 4/4 · 16th grid)
+  // -> parse it back so every view can re-draw the SVG
+  function parseRhythmLine(line) {
+    line = String(line || "");
+    if (line.indexOf("🎵") !== 0) return null;
+    var meta = line.match(/\((\d+)\s*BPM\s*·\s*(\d+)\/4\s*·\s*(16th|triplet) grid\)/);
+    var body = line.replace(/^🎵/, "").replace(/\([^)]*\)\s*$/, "");
+    var chars = body.replace(/[^x·]/g, "");
+    if (!chars || chars.indexOf("x") < 0) return null;
+    var slots = [];
+    for (var i = 0; i < chars.length; i++) slots.push(chars[i] === "x");
+    return { slots: slots, div: meta && meta[3] === "triplet" ? 3 : 4,
+             bpb: meta ? +meta[2] : 4, bpm: meta ? +meta[1] : null };
+  }
+
   /* ---------- misc helpers -------------------------------------------- */
   function tabCount(song) {
     return (song.riffs || []).filter(function (r) { return r.tab && r.tab.length; }).length;
@@ -262,6 +376,7 @@
     renderTab: renderTab, tabToText: tabToText, emptyGrid: emptyGrid,
     repeatCount: repeatCount, tabCount: tabCount,
     grayHex: grayHex, inkOnGray: inkOnGray, hexRgb: hexRgb,
+    rhythmTokens: rhythmTokens, rhythmSVG: rhythmSVG, parseRhythmLine: parseRhythmLine,
     todayISO: todayISO, emptySong: emptySong, emptyState: emptyState
   };
 

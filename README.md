@@ -108,7 +108,23 @@ scales the A4 page to fit one screen. On top of it:
   There's also a **🥁 next to each song's Tempo field** in the editor: it opens
   a big fixed tap pad (thumb-sized) — tap the beat, then *Done*, 10 s cap or a
   2.5 s pause writes `~<bpm> BPM` into the field (min 3 taps); *Cancel*,
-  scrolling or focusing another field dismisses it.
+  scrolling or focusing another field dismisses it. Its **🎵 Rhythm** button
+  records an actual rhythm: one count-in bar (audible click), then tap the
+  figure for 2 bars. Quantizing is forgiving: your systematic lag (audio +
+  touch latency) is measured as a circular mean and subtracted, and both a
+  **16th grid and a triplet grid** are tried — best fit wins. The result is
+  an **editable cell grid** (tap cells to add/remove hits) plus the rhythm
+  **drawn as real notation** — inline SVG (noteheads, stems, flags, dots,
+  triplet ³, ties, barlines at every bar) so it renders identically in any
+  browser, no font roulette. Pushed as a note it's stored as a compact
+  parseable line (`🎵 x··· ··x· … (120 BPM · 4/4 · 16th grid)`) and **every
+  view re-draws it as notation**: song sheet, rehearsal rows, practice
+  digest, review queue. Copy gives the portable text form. Spacebar taps
+  too on desktop.
+- **🌙 Gig night mode** (in the View nav, remembered): dark-inverted sheet
+  (hues kept, luminance flipped), tabs/notes hidden, chords extra large, and
+  the screen stays awake. Tab titles stay tappable for the zoom. Built for
+  dark stages; flip it off and the sheet is back to paper-white.
   Setlists are reachable from the editor too via **☰ Sets** in the top bar
   (tapping a song there opens its card instead of jumping stage view).
 - **🎤 Voice memos** (in the rehearsal sheet): record up to 5 min per take,
@@ -119,10 +135,23 @@ scales the A4 page to fit one screen. On top of it:
   *Data → Export incl. voice memos* (share sheet / AirDrop on iPhone, file
   download elsewhere); importing that file rehydrates them. Recording holds a
   screen wake-lock — a locked phone kills the mic.
-- **PWA / offline**: the app ships a manifest + service worker. Visit once
-  online, then *Add to Home Screen* — it opens full-screen and works with **no
-  network at all** (CDN libs get runtime-cached too). Bump `VERSION` in `sw.js`
-  when deploying changes.
+- **🎤 Voice memos** (in the rehearsal sheet): record a take per song+section
+  (max 5 min), ▶ playback rows with size and **"Xd left"** — memos auto-vanish
+  after **30 days** (age only; loading the demo or another book never deletes
+  them). Stored in IndexedDB, device-local: they never ride the share URL.
+  *Data → Export incl. voice memos* moves them as a file (AirDrop/share sheet).
+- **Tab zoom** (View mode): tap a riff → full-size mono ribbon, flattened to
+  one line (wrapping and ↵ undone), sideways scroll. Big type on desktop,
+  fullscreen when the phone is flipped to landscape. Chord rows and the song
+  title bar are tappable too (→ rehearsal sheet on that section / whole song).
+- **↩ Back where I was**: after a double-click/double-tap deep link from the
+  preview into the editor, one tap restores the previous card state and exact
+  scroll position.
+- **PWA / offline**: manifest + service worker. Visit once online, then *Add
+  to Home Screen* — works with **no network at all** (CDN libs runtime-cached).
+  The deploy workflow stamps the SW version with the commit SHA, so no manual
+  bumping; a green **✓ Updated** toast flashes when a new version lands, and
+  *Data → ⟳ Update app* force-checks, downloads and reloads in one tap.
 - **🔗 Share** (in ☰, or Data → *Copy share link*) puts the **whole songbook,
   compressed, in the URL fragment** (`#d=…`, lz-string). Open that link in any
   browser/device and it offers to import — no backend, and the fragment never

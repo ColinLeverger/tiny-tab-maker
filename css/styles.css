@@ -306,6 +306,10 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
 .rehearsal .rh-row.red{border-left-color:#d3382f;background:#fdf0ef}
 .rehearsal .rh-row.yellow{border-left-color:#e6a700;background:#fdf7e6}
 .rehearsal .rh-nn{font-family:var(--mono);font-size:.72rem;color:#8a929b;font-weight:700}
+/* rhythm notes drawn inline wherever they appear */
+.rh-rhy{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto}
+.rh-rhy svg{display:block}
+.rh-rmeta{font-size:.7rem;color:#8a929b;font-variant-numeric:tabular-nums}
 
 /* editor rows */
 .rh-edit{display:grid;grid-template-columns:auto minmax(70px,auto) 1fr auto;gap:.35rem;
@@ -392,6 +396,23 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
 #tpHit:active{background:rgba(255,255,255,.22)}
 .tp-actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.55rem}
 .tp-actions .btn{min-height:42px}
+#tpHit.hit{background:rgba(255,255,255,.28)}
+#tpRhythm{margin-right:auto}                 /* rhythm on the left, Cancel/Done right */
+.tp-rhy{margin-top:.55rem;background:rgba(255,255,255,.08);border-radius:10px;padding:.5rem .6rem}
+.tp-rhy code{display:block;font-family:var(--mono);font-size:.95rem;color:#ffd27a;
+  white-space:pre-wrap;line-height:1.5}
+.tp-rhy .tp-actions{margin-top:.4rem}
+.tp-rhy[hidden]{display:none}
+/* editable rhythm grid: one row per bar, gaps mark the beats */
+#tpRhyGrid{display:flex;flex-direction:column;gap:4px;margin:.1rem 0 .4rem}
+.rhy-bar{display:flex;gap:2px}
+.rhy-c{flex:1;min-width:0;height:28px;border-radius:5px;border:1px solid rgba(255,255,255,.25);
+  background:rgba(255,255,255,.06);color:#8a929b;cursor:pointer;font-size:.72rem;
+  font-family:var(--mono);padding:0;line-height:1}
+.rhy-c.on{background:#e6a700;border-color:#e6a700;color:#111;font-weight:700}
+.rhy-c.beat-start{margin-left:7px}
+#tpRhyNotes{overflow-x:auto;margin:.15rem 0 .3rem}
+#tpRhyNotes svg{display:block}
 
 /* floating "back where I was" after a double-tap deep link */
 .back-float{position:fixed;right:16px;bottom:16px;z-index:45;min-height:44px;
@@ -433,6 +454,16 @@ body.stage.stage-portrait .sheet.stage-current{padding:6mm 4mm}
 /* narrow reflow: let the header and pills wrap instead of forcing width */
 body.stage.stage-portrait .sheet.stage-current .songsheet-head{flex-wrap:wrap}
 body.stage.stage-portrait .sheet.stage-current .fh-meta{margin-left:0}
+
+/* ---- GIG NIGHT MODE: dark venue, chords only, big ---- */
+body.stage.gig .preview-wrap{background:#07090d}
+/* invert+rotate ≈ keeps hues, flips luminance: white page -> near-black */
+body.stage.gig .sheet.stage-current{filter:invert(.93) hue-rotate(180deg);box-shadow:none}
+body.stage.gig pre.tab,body.stage.gig .kv,body.stage.gig .rehearsal{display:none}
+body.stage.gig .tab-head{opacity:.75;font-size:.75rem}  /* stays tappable -> tab zoom */
+body.stage.gig .chords td.cv{font-size:calc(var(--fs,12pt) * 0.95);font-weight:700}
+body.stage.gig .chords td.cl{font-size:calc(var(--fs,12pt) * 0.75)}
+.stage-nav .btn.nav.on{background:var(--accent)}
 
 /* floating navigation pill */
 body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
