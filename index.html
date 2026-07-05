@@ -255,7 +255,7 @@
 // first install), flash a green "Updated" toast for 10 s.
 if ("serviceWorker" in navigator) {
   var hadSW = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.register("sw.js").then(function (reg) {
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function (reg) {
     reg.addEventListener("updatefound", function () {
       var nw = reg.installing;
       if (!nw || !hadSW) return;                 // first install: nothing to announce
