@@ -237,8 +237,26 @@
 <script src="js/pdf.js"></script>
 <script src="js/app.js"></script>
 <script>
-// PWA: offline cache — after one online visit the app works with no network
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
+// PWA: offline cache — after one online visit the app works with no network.
+// When a NEW version's service worker activates (i.e., a real update, not the
+// first install), flash a green "Updated" toast for 10 s.
+if ("serviceWorker" in navigator) {
+  var hadSW = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").then(function (reg) {
+    reg.addEventListener("updatefound", function () {
+      var nw = reg.installing;
+      if (!nw || !hadSW) return;                 // first install: nothing to announce
+      nw.addEventListener("statechange", function () {
+        if (nw.state !== "activated") return;
+        var t = document.createElement("div");
+        t.className = "updated-toast";
+        t.textContent = "✓ Updated";
+        document.body.appendChild(t);
+        setTimeout(function () { t.remove(); }, 10000);
+      });
+    });
+  }).catch(function () {});
+}
 </script>
 </body>
 </html>
