@@ -1179,12 +1179,44 @@
     var i = stageSongIndex();
     openRehearsal(i >= 0 ? i : 0, "__song");
   });
-  // tapping a section pill on the current sheet (stage view only)
+  /* ---- tab zoom: tap a shrunken riff on stage -> full-size, ONE line ---- */
+  function openTabZoom(song, riff) {
+    $("#tzTitle").textContent = (song.num ? song.num + " — " : "") + "Tab — " + (riff.label || "Riff");
+    // maxw huge + manual line-skips stripped = one continuous 6-line ribbon
+    var evs = (riff.tab || []).filter(function (ev) { return ev[0] !== "nl"; });
+    var blocks = FG.renderTab(evs.length ? evs : null, { ascii: false, maxw: 1e9 });
+    $("#tzPre").textContent = blocks.map(function (b) { return b.join("\n"); }).join("\n\n");
+    $("#tabZoom").classList.add("open");
+  }
+  function closeTabZoom() { $("#tabZoom").classList.remove("open"); }
+  $("#tzClose").addEventListener("click", closeTabZoom);
+  $("#tabZoom").addEventListener("click", function (e) { if (e.target === $("#tabZoom")) closeTabZoom(); });
+
+  // stage view taps: pills, chord rows and the song header all open the
+  // rehearsal sheet on the right target; a riff opens the tab zoom.
   $("#preview").addEventListener("click", function (e) {
     if (!document.body.classList.contains("stage")) return;
-    var p = e.target.closest(".pill[data-sec]"); if (!p) return;
     var i = stageSongIndex(); if (i < 0) return;
-    openRehearsal(i, p.getAttribute("data-sec"));
+    var p = e.target.closest(".pill[data-sec]");
+    if (p) { openRehearsal(i, p.getAttribute("data-sec")); return; }
+    var tr = e.target.closest(".chords tr");
+    if (tr) {
+      var cl = tr.querySelector(".cl");
+      var sec = cl ? cl.textContent.trim() : "";
+      openRehearsal(i, sec || "__song");
+      return;
+    }
+    if (e.target.closest(".songsheet-head")) { openRehearsal(i, "__song"); return; }
+    var tp = e.target.closest("pre.tab, .tab-head");
+    if (tp) {
+      var sheet = e.target.closest(".sheet.songsheet"); if (!sheet) return;
+      var myHead = tp.classList.contains("tab-head") ? tp
+        : (tp.previousElementSibling && tp.previousElementSibling.classList.contains("tab-head")
+           ? tp.previousElementSibling : null);
+      var ri = myHead ? $$(".tab-head", sheet).indexOf(myHead) : -1;
+      var r = STATE.songs[i] && STATE.songs[i].riffs[ri];
+      if (r) openTabZoom(STATE.songs[i], r);
+    }
   });
 
   /* =====================================================================
@@ -1878,6 +1910,7 @@
   // keyboard: Esc closes modal / leaves View; arrows flip songs in View mode
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
+      if ($("#tabZoom").classList.contains("open")) { closeTabZoom(); return; }
       if (RH) { closeRh(); return; }
       if (RV) { closeReview(); return; }
       if ($("#digestModal").classList.contains("open")) { closeDigest(); return; }

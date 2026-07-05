@@ -263,7 +263,14 @@ pre.tab{font-family:var(--mono);font-size:calc(var(--fs,12pt) * 0.7);line-height
 .rdot.note{background:#9aa1a8}
 .rflag{font-size:.85em;margin-right:.25em;opacity:.8}
 .pills .pill{position:relative}
-body.stage .pills .pill{cursor:pointer}
+body.stage .pills .pill,body.stage .chords tr,body.stage .songsheet-head,
+body.stage pre.tab,body.stage .tab-head{cursor:pointer}
+
+/* tab zoom overlay: full-size mono ribbon, sideways scroll */
+.tabzoom pre{font-family:var(--mono);font-size:17px;line-height:1.35;white-space:pre;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;background:#10141a;color:#e6edf3;
+  padding:.8rem .9rem;border-radius:10px;margin:.2rem 0 0}
+.tz-hint{font-size:.75rem;color:var(--muted);margin-top:.4rem;text-align:center}
 
 /* rehearsal block on the songsheet — screen only, never printed */
 .rehearsal{margin-top:.7rem;border-top:1px dashed var(--line2);padding-top:.35rem}
