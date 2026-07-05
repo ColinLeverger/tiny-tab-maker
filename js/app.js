@@ -892,6 +892,7 @@
       link.href = url; link.download = "songbook-data.json"; link.click();
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     } else if (a === "share") { copyShare(null); }
+    else if (a === "update") { checkUpdate(); }
     else if (a === "export-memos") { exportWithMemos(); }
     else if (a === "import") { $("#fileInput").click(); }
     else if (a === "demo") { if (confirm("Replace the current content with the demo?")) { pushHistory(); STATE = clone(FG.DEMO); UI.openSong = null; renderAll(); } }
@@ -901,6 +902,34 @@
       }
     }
   });
+
+  // manual "Update app": force a service-worker check; if a new version
+  // exists, wait for it to activate (new cache is pre-filled) then reload —
+  // one tap replaces the whole open-close-open dance.
+  function checkUpdate() {
+    if (!("serviceWorker" in navigator)) { setStatus("⚠︎ no service-worker support here", true); return; }
+    setStatus("⟳ checking for update…");
+    navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (!reg) { setStatus("⚠︎ service worker not registered yet — reload once online", true); return; }
+      var found = false;
+      reg.addEventListener("updatefound", function () {
+        found = true;
+        var nw = reg.installing; if (!nw) return;
+        setStatus("⟳ downloading new version…");
+        nw.addEventListener("statechange", function () {
+          if (nw.state === "activated") {
+            setStatus("✓ Updated — reloading…");
+            setTimeout(function () { root.location.reload(); }, 600);
+          } else if (nw.state === "redundant") {
+            setStatus("⚠︎ update failed — try again", true);
+          }
+        });
+      }, { once: true });
+      reg.update().then(function () {
+        setTimeout(function () { if (!found) setStatus("✓ Already the latest version"); }, 1500);
+      }).catch(function () { setStatus("⚠︎ update check failed (offline?)", true); });
+    }).catch(function () { setStatus("⚠︎ update check failed", true); });
+  }
 
   $("#fileInput").addEventListener("change", function () {
     var f = this.files[0]; if (!f) return;
