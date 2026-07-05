@@ -60,10 +60,12 @@ splits a song across two pages). **Size** sets the chord + tab text size.
 
 ## Rehearsal mode (phone / tablet)
 
-The **📖 View** button gives a full-screen, one-song-per-screen reading view —
-on portrait phones the sheet reflows to screen width and scrolls vertically
-(long, not large); on landscape/desktop it scales to fit one screen.
-On top of it:
+The **📖 View** button gives a full-screen, one-song-per-screen reading view.
+On portrait phones the layout mimics the editor preview: text keeps its size
+and wraps, each ASCII tab shrinks its own font to fit, and the sheet width is
+iterated until its shape matches the screen — then one uniform zoom fills the
+screen exactly (always ONE page, biggest zoom that fits). Landscape/desktop
+scales the A4 page to fit one screen. On top of it:
 
 - **Tap a section pill** (or the **🖍** button for the whole song) → a bottom
   sheet opens: mark the section **red** (needs work) / **yellow** (so-so) and

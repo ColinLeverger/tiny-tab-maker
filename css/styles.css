@@ -395,10 +395,8 @@ body.stage .sheet{display:none}
 body.stage .sheet.stage-current{display:block;position:absolute;top:0;left:0;
   width:794px;max-width:none;margin:0;padding:12mm 12mm;
   transform-origin:top left;box-shadow:0 3px 18px rgba(0,0,0,.22)}
-/* portrait phones: sheet flows in-document and the wrap scrolls vertically */
-body.stage.stage-portrait .preview-wrap{overflow-y:auto;-webkit-overflow-scrolling:touch}
-body.stage.stage-portrait #preview{height:auto;min-height:100%}
-body.stage.stage-portrait .sheet.stage-current{position:relative;padding:6mm 4mm}
+/* portrait phones: one page, tight padding, headers/pills wrap when narrow */
+body.stage.stage-portrait .sheet.stage-current{padding:6mm 4mm}
 /* narrow reflow: let the header and pills wrap instead of forcing width */
 body.stage.stage-portrait .sheet.stage-current .songsheet-head{flex-wrap:wrap}
 body.stage.stage-portrait .sheet.stage-current .fh-meta{margin-left:0}

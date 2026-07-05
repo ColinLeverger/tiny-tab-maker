@@ -854,7 +854,23 @@
     });
   })();
 
-  function toggleMenu(id) { $$(".menu-pop").forEach(function (m) { if (m.id !== id) m.classList.remove("open"); }); $("#" + id).classList.toggle("open"); }
+  function toggleMenu(id) {
+    $$(".menu-pop").forEach(function (m) { if (m.id !== id) m.classList.remove("open"); });
+    var pop = $("#" + id);
+    pop.classList.toggle("open");
+    // phones: anchored-absolute pops overflow the viewport -> pin them
+    // full-width under their button instead
+    if (pop.classList.contains("open") && root.innerWidth <= 880) {
+      var btn = pop.parentNode.querySelector("button");
+      var top = btn ? btn.getBoundingClientRect().bottom + 6 : 60;
+      pop.style.position = "fixed";
+      pop.style.left = "8px"; pop.style.right = "8px";
+      pop.style.top = top + "px"; pop.style.maxWidth = "none";
+    } else {
+      pop.style.position = ""; pop.style.left = ""; pop.style.right = "";
+      pop.style.top = ""; pop.style.maxWidth = "";
+    }
+  }
   $("#genBtn").addEventListener("click", function (e) { e.stopPropagation(); toggleMenu("genMenu"); });
   $("#dataBtn").addEventListener("click", function (e) { e.stopPropagation(); toggleMenu("dataMenu"); });
   document.addEventListener("click", function () { $$(".menu-pop").forEach(function (m) { m.classList.remove("open"); }); });
@@ -932,43 +948,31 @@
     document.body.classList.toggle("stage-portrait", portrait);
 
     if (portrait) {
-      // Phones: LONG, not LARGE — content-driven zoom. Measure the widest REAL
-      // line (widest tab, widest chord row), shrink the sheet to exactly that,
-      // then scale the whole sheet so that line hits the screen edge. Big
-      // readable content, vertical scroll for the rest.
-      el.style.width = "794px";                                // measure baseline
-      var PADX = 32;                                           // 4mm side padding ×2 + border
-      var need = 280;
-      var tabW = 0;
-      $$("pre.tab", el).forEach(function (p) { tabW = Math.max(tabW, p.scrollWidth); });
-      if (tabW) need = Math.max(need, tabW + PADX);
-      // chord rows: label cell is 36% of the table, value cell the rest —
-      // the row's required table width is whichever constraint bites harder
-      var meas = document.createElement("span");
-      meas.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0";
-      document.body.appendChild(meas);
-      var tw = function (node) {
-        var cs = root.getComputedStyle(node);
-        meas.style.font = cs.font || (cs.fontSize + " " + cs.fontFamily);
-        meas.textContent = node.textContent || "";
-        return meas.offsetWidth;
-      };
-      $$(".chords tr", el).forEach(function (tr) {
-        var cl = tr.querySelector(".cl"), cv = tr.querySelector(".cv");
-        if (!cl || !cv) return;
-        var w = Math.max((tw(cl) + 20) / 0.36, (tw(cv) + 20) / 0.64);
-        need = Math.max(need, w + PADX);
-      });
-      meas.parentNode && meas.parentNode.removeChild(meas);
-      var Wb = Math.max(280, Math.min(794, Math.ceil(need)));
+      // "Edit-pane look", one page, max zoom:
+      //  - text keeps its natural size and WRAPS when narrow (like the editor
+      //    preview the user likes)
+      //  - every ASCII tab shrinks ITS OWN font to fit the sheet width, so a
+      //    wide riff never taxes the chords' size again
+      //  - the sheet width is iterated until the sheet's shape matches the
+      //    screen's shape; filling the width then also fills the height ->
+      //    exactly one page, and provably the biggest uniform zoom that fits.
+      var target = aW / aH, Wb = 600;
+      for (var it = 0; it < 6; it++) {
+        el.style.width = Wb + "px";
+        fitTabs(el);
+        var h = el.offsetHeight; if (!h) break;
+        var asp = Wb / h;
+        if (Math.abs(asp - target) <= 0.02) break;
+        Wb = Math.max(300, Math.min(794, Wb * Math.sqrt(target / asp)));
+      }
       el.style.width = Wb + "px";
-      fitTabs(el);                                             // whole tab always visible
-      var k = Math.min(aW / Wb, 2.4);                          // zoom in (or down if a tab is huge)
+      fitTabs(el);
+      var Wp = el.offsetWidth, Hp = el.offsetHeight;
+      if (!Wp || !Hp) return;
+      var kp = Math.min(aW / Wp, aH / Hp, 2);        // ×2 cap: sparse ≠ billboard
+      var txp = Math.max(0, (aW - kp * Wp) / 2), typ = Math.max(0, (aH - kp * Hp) / 2);
       el.style.transformOrigin = "top left";
-      el.style.transform = "scale(" + k.toFixed(4) + ")";
-      // transform doesn't change layout height -> fix the scroll extent
-      el.style.marginBottom = ((k - 1) * el.offsetHeight).toFixed(1) + "px";
-      var wrap = $(".preview-wrap"); if (wrap) wrap.scrollTop = 0;
+      el.style.transform = "translate(" + txp.toFixed(1) + "px," + typ.toFixed(1) + "px) scale(" + kp.toFixed(4) + ")";
       return;
     }
 
