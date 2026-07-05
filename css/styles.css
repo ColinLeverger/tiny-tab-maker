@@ -271,6 +271,18 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
   overflow-x:auto;-webkit-overflow-scrolling:touch;background:#10141a;color:#e6edf3;
   padding:.8rem .9rem;border-radius:10px;margin:.2rem 0 0}
 .tz-hint{font-size:.75rem;color:var(--muted);margin-top:.4rem;text-align:center}
+/* PC: plenty of room -> wide modal, big type */
+@media (min-width:881px){
+  #tabZoom .bsheet{max-width:min(1200px,94vw)}
+  .tabzoom pre{font-size:28px;line-height:1.4}
+}
+/* phone flipped to landscape: go FULLSCREEN, maximum ribbon */
+@media (orientation:landscape) and (max-height:500px){
+  #tabZoom .bsheet{max-width:none;width:100%;height:100vh;max-height:100vh;border-radius:0;
+    display:flex;flex-direction:column;padding:.5rem .7rem calc(.5rem + env(safe-area-inset-bottom,0px))}
+  .tabzoom pre{flex:1;font-size:24px;line-height:1.45}
+  #tabZoom .tz-hint{display:none}
+}
 
 /* rehearsal block on the songsheet — screen only, never printed */
 .rehearsal{margin-top:.7rem;border-top:1px dashed var(--line2);padding-top:.35rem}
