@@ -271,6 +271,9 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
   overflow-x:auto;-webkit-overflow-scrolling:touch;background:#10141a;color:#e6edf3;
   padding:.8rem .9rem;border-radius:10px;margin:.2rem 0 0}
 .tz-hint{font-size:.75rem;color:var(--muted);margin-top:.4rem;text-align:center}
+/* fat-thumb close target for the zoom overlay (Apple min is 44px) */
+#tzClose{min-width:44px;min-height:44px;font-size:1.15rem;line-height:1;padding:.3rem .5rem;
+  display:inline-flex;align-items:center;justify-content:center}
 /* PC: plenty of room -> wide modal, big type */
 @media (min-width:881px){
   #tabZoom .bsheet{max-width:min(1200px,94vw)}
@@ -288,6 +291,7 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
     padding-right:max(.9rem, env(safe-area-inset-right,0px))}
   .tabzoom pre{flex:0 1 auto;margin:auto 0;font-size:24px;line-height:1.45;
     padding-left:max(.9rem, env(safe-area-inset-left,0px))}  /* string labels clear the notch */
+  #tabZoom #tzClose{min-width:54px;min-height:54px;font-size:1.4rem}  /* bigger for landscape thumbs */
   #tabZoom .tz-hint{display:none}
 }
 
