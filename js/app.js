@@ -559,6 +559,10 @@
     var bpb = 4;
     if (s && s.meter) { var mm = String(s.meter).match(/^(\d+)/); if (mm && (mm[1] === "3" || mm[1] === "6")) bpb = +mm[1]; }
     var AC = (root.AudioContext || root.webkitAudioContext) ? new (root.AudioContext || root.webkitAudioContext)() : null;
+    // iOS/WebKit builds the context SUSPENDED even inside a tap; desktop Firefox
+    // starts it running. Resume it here — we're still in the click gesture — or
+    // the clicks schedule onto a frozen clock and the iPhone stays silent.
+    if (AC && AC.state !== "running" && AC.resume) AC.resume();
     var spb = 60 / bpm, bars = 2;
     RHY = { bpm: bpm, bpb: bpb, spb: spb, bars: bars, ac: AC, taps: [], timer: null, doneT: null };
     var t0 = rhyNow() + 0.2;
