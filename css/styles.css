@@ -508,6 +508,9 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
  * ===================================================================== */
 @media print{
   @page{size:A4;margin:0}
+  /* force background colours (header bands, pills, tinted cells) to print —
+   * without this browsers drop all backgrounds and the sheets look washed out */
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
   .topbar,.editor,.modal-bg,.resizer,.stage-nav{display:none !important}
   /* rehearsal scribbles are personal — keep them off the printed booklet */
   .rehearsal,.rdot,.rflag{display:none !important}
