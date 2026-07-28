@@ -67,6 +67,10 @@ iterated until its shape matches the screen — then one uniform zoom fills the
 screen exactly (always ONE page, biggest zoom that fits). Landscape/desktop
 scales the A4 page to fit one screen. On top of it:
 
+- **Swipe** the sheet sideways to flip songs — left = next, right = previous
+  (same as ◀ ▶ and the ← → keys). The sheet follows the finger and rubber-bands
+  at the first and last song; a vertical drag or a pinch is left to the browser,
+  and a swipe never counts as a tap on the pill it ended over.
 - **Tap a section pill** (or the **🖍** button for the whole song) → a bottom
   sheet opens: mark the section **red** (needs work) / **yellow** (so-so) and
   **push notes**: type, hit *＋ Push* (or Enter), the field blanks for the next

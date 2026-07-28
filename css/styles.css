@@ -443,9 +443,11 @@ body.stage{height:auto}
 body.stage .topbar,body.stage .editor,body.stage .resizer{display:none !important}
 body.stage .layout{display:block;height:auto}
 /* fill the screen; JS scales the current song to be as big as fits on ONE page */
-body.stage .preview-wrap{height:100vh;overflow:hidden;background:#dfe3e8;
+/* touch-action:pan-y -> the horizontal axis is ours (swipe = flip song), the
+   vertical one stays the browser's; pinch-zoom is untouched. */
+body.stage .preview-wrap{height:100vh;overflow:hidden;background:#dfe3e8;touch-action:pan-y;
   padding:calc(10px + env(safe-area-inset-top,0px)) 8px calc(80px + env(safe-area-inset-bottom,0px))}
-body.stage #preview{position:relative;width:100%;height:100%;max-width:none;margin:0}
+body.stage #preview{position:relative;width:100%;height:100%;max-width:none;margin:0;will-change:transform}
 body.stage .pagegroup{display:contents}
 body.stage .pagegroup .pagelabel{display:none}
 /* one song at a time; JS centres + scales the current sheet to fit exactly */

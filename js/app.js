@@ -1260,6 +1260,79 @@
   var sNext = $("#stageNext"); if (sNext) sNext.addEventListener("click", function () { stageGo(stageIdx + 1); });
   var sExit = $("#stageExit"); if (sExit) sExit.addEventListener("click", exitStage);
   window.addEventListener("resize", function () { if (document.body.classList.contains("stage")) fitStageSheet(); });
+
+  /* ---------------------------------------------------------------------
+   *  SWIPE (phone / tablet): drag the sheet sideways to flip songs.
+   *  swipe left = next, swipe right = previous — same as ▶ / ◀ and the arrows.
+   *  The gesture locks to an axis after a few px, so a vertical drag or a
+   *  pinch is left to the browser, and a swipe swallows its own ghost click
+   *  (otherwise releasing over a section pill would open the rehearsal sheet).
+   * ------------------------------------------------------------------- */
+  (function stageSwipe() {
+    var host = $(".preview-wrap"), pv = $("#preview");
+    if (!host || !pv || !("ontouchstart" in window)) return;
+    var LOCK = 12;          // px travelled before the axis is decided
+    var COMMIT = 60;        // px (capped at 20% of the screen) that flips a song
+    var sx = 0, sy = 0, dx = 0, live = false, horiz = false, swiped = false, w = 1;
+
+    function busy() {       // an overlay owns the touch -> the sheet stays put
+      return !!(TAB || RH || RV) ||
+        ["#tabZoom", "#rhModal", "#setModal", "#digestModal", "#reviewModal"]
+          .some(function (s) { var m = $(s); return m && m.classList.contains("open"); });
+    }
+    function shift(px) {
+      pv.style.transition = "";
+      pv.style.transform = px ? "translateX(" + px.toFixed(1) + "px)" : "";
+    }
+    function springBack() {
+      pv.style.transition = "transform .18s ease-out";
+      pv.style.transform = "translateX(0px)";
+      setTimeout(function () { pv.style.transition = ""; pv.style.transform = ""; }, 200);
+    }
+
+    host.addEventListener("touchstart", function (e) {
+      live = false; horiz = false; swiped = false;
+      if (!document.body.classList.contains("stage") || busy()) return;
+      if (e.touches.length !== 1) return;                  // pinch-zoom stays a pinch
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      dx = 0; live = true; w = host.clientWidth || 1;
+    }, { passive: true });
+
+    host.addEventListener("touchmove", function (e) {
+      if (!live) return;
+      if (e.touches.length !== 1) { live = false; shift(0); return; }
+      dx = e.touches[0].clientX - sx;
+      var dy = e.touches[0].clientY - sy;
+      if (!horiz) {
+        if (Math.abs(dx) < LOCK && Math.abs(dy) < LOCK) return;
+        if (Math.abs(dx) <= Math.abs(dy) * 1.2) { live = false; return; }  // vertical: not ours
+        horiz = true;
+      }
+      swiped = true;
+      if (e.cancelable) e.preventDefault();
+      var last = stageSheets().length - 1;
+      var stuck = (dx > 0 && stageIdx <= 0) || (dx < 0 && stageIdx >= last);
+      shift(stuck ? dx * 0.25 : dx);                       // rubber-band at both ends
+    }, { passive: false });
+
+    function release() {
+      if (!live) return;
+      live = false;
+      if (horiz && Math.abs(dx) > Math.min(COMMIT, w * 0.2)) {
+        shift(0);                                          // new song lands centred
+        stageGo(stageIdx + (dx < 0 ? 1 : -1));
+      } else springBack();
+    }
+    host.addEventListener("touchend", release, { passive: true });
+    host.addEventListener("touchcancel", function () { live = false; shift(0); }, { passive: true });
+
+    // a swipe must not also count as a tap on whatever is under the finger
+    host.addEventListener("click", function (e) {
+      if (!swiped) return;
+      swiped = false;
+      e.stopPropagation(); e.preventDefault();
+    }, true);
+  })();
   // expose for the preview-refresh hook (re-apply current sheet after a re-render)
   root.__ttmStageRefresh = function () { if (document.body.classList.contains("stage")) renderStageCurrent(); };
 
