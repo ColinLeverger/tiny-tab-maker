@@ -1212,17 +1212,43 @@
     if (window.scrollTo) window.scrollTo(0, 0);      // start at the top of the new song
     var wrap = $(".preview-wrap"); if (wrap) wrap.scrollTop = 0;
   }
-  /* ---- gig night mode: dark inverted sheet, chords only, screen awake ---- */
-  var gigWake = null;
+  /* ---------------------------------------------------------------------
+   *  SCREEN AWAKE — held for the WHOLE of View mode, not just gig night:
+   *  nobody wants the sheet to black out mid-song because both hands are
+   *  on the instrument. Requested on entering View, released on leaving.
+   *
+   *  The lock is auto-released by the browser whenever the page is hidden
+   *  (tab switch, phone locked, app backgrounded), and it does NOT come
+   *  back by itself — hence the re-request on visibilitychange.
+   *  iOS: needs Safari 16.4+; iOS Low Power Mode overrides it regardless.
+   * ------------------------------------------------------------------- */
+  var wakeLock = null, wakePending = false;
+  function wakeWanted() { return document.body.classList.contains("stage"); }
+  function applyWake() {
+    if (wakeWanted()) {
+      if (!navigator.wakeLock || wakeLock || wakePending) return;
+      if (document.visibilityState !== "visible") return;   // would reject anyway
+      wakePending = true;
+      navigator.wakeLock.request("screen").then(function (l) {
+        wakePending = false;
+        if (!wakeWanted()) { l.release().catch(function () {}); return; }  // left meanwhile
+        wakeLock = l;
+        l.addEventListener("release", function () { wakeLock = null; });
+      }).catch(function () { wakePending = false; });       // unsupported / refused: no drama
+    } else if (wakeLock) {
+      wakeLock.release().catch(function () {});
+      wakeLock = null;
+    }
+  }
+  // coming back to a View-mode page: the OS dropped the lock, take it again
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") applyWake();
+  });
+
+  /* ---- gig night mode: dark inverted sheet, chords only ---- */
   function applyGig() {
     document.body.classList.toggle("gig", !!UI.gig && document.body.classList.contains("stage"));
     var b = $("#stageGig"); if (b) b.classList.toggle("on", !!UI.gig);
-    if (UI.gig && document.body.classList.contains("stage")) {
-      if (navigator.wakeLock && !gigWake)
-        navigator.wakeLock.request("screen").then(function (l) {
-          gigWake = l; l.addEventListener("release", function () { gigWake = null; });
-        }).catch(function () {});
-    } else if (gigWake) { gigWake.release().catch(function () {}); gigWake = null; }
     if (document.body.classList.contains("stage")) renderStageCurrent(); // heights change
   }
   var stageGigBtn = $("#stageGig");
@@ -1232,6 +1258,7 @@
 
   function enterStage() {
     document.body.classList.add("stage");
+    applyWake();          // inside the View-button click: user activation is fresh
     applyGig();
     var sh = stageSheets();
     if (stageIdx <= 0) {                             // first entry: jump to the first song
@@ -1245,7 +1272,7 @@
     document.body.classList.remove("stage");
     document.body.classList.remove("stage-portrait");
     document.body.classList.remove("gig");
-    if (gigWake) { gigWake.release().catch(function () {}); gigWake = null; }
+    applyWake();          // stage class is gone -> releases the screen lock
     $$("#preview .sheet").forEach(function (s) {
       s.classList.remove("stage-current");
       s.style.transform = ""; s.style.transformOrigin = ""; s.style.width = "";
@@ -1665,11 +1692,12 @@
       if (!RH) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
       var chunks = [], mr = new MediaRecorder(stream);
       var song = STATE.songs[RH.si], sec = RH.sec;
-      REC = { mr: mr, stream: stream, t0: Date.now(), timer: null };
+      REC = { mr: mr, stream: stream, t0: Date.now(), timer: null, wake: null };
       mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
       mr.onstop = function () {
         clearInterval(REC.timer);
         stream.getTracks().forEach(function (t) { t.stop(); });
+        if (REC.wake) { REC.wake.release().catch(function () {}); REC.wake = null; }
         var dur = Date.now() - REC.t0;
         REC = null; recStopUI();
         if (!chunks.length || dur < 400) return;
@@ -1686,8 +1714,12 @@
         var t = $("#rhRecT"); if (t) t.textContent = "● " + fmtDur(el);
         if (el >= MEMO_MAX_MS) recStop();
       }, 250);
-      // screen lock kills the mic on phones — hold a wake lock while recording
-      if (navigator.wakeLock) navigator.wakeLock.request("screen").catch(function () {});
+      // screen lock kills the mic on phones — hold a wake lock while recording.
+      // Kept on REC and released in onstop, otherwise the screen would stay
+      // awake forever after the first take. Independent of the View-mode lock.
+      if (navigator.wakeLock) navigator.wakeLock.request("screen").then(function (l) {
+        if (REC) REC.wake = l; else l.release().catch(function () {});  // stopped already
+      }).catch(function () {});
     }).catch(function () { alert("Microphone unavailable or permission denied."); });
   }
   $("#rhRec").addEventListener("click", function () { REC ? recStop() : recStart(); });

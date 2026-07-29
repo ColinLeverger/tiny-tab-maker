@@ -125,9 +125,14 @@ scales the A4 page to fit one screen. On top of it:
   view re-draws it as notation**: song sheet, rehearsal rows, practice
   digest, review queue. Copy gives the portable text form. Spacebar taps
   too on desktop.
+- **The screen stays awake** for as long as View mode is open (Screen Wake
+  Lock) — both hands are on the instrument, so nothing blacks out mid-song.
+  The lock is dropped when you leave View and re-taken when the page comes
+  back to the foreground. Needs iOS 16.4+ / a supporting browser, and iOS
+  **Low Power Mode overrides it** whatever the page asks for.
 - **🌙 Gig night mode** (in the View nav, remembered): dark-inverted sheet
-  (hues kept, luminance flipped), tabs/notes hidden, chords extra large, and
-  the screen stays awake. Tab titles stay tappable for the zoom. Built for
+  (hues kept, luminance flipped), tabs/notes hidden, chords extra large.
+  Tab titles stay tappable for the zoom. Built for
   dark stages; flip it off and the sheet is back to paper-white.
   Setlists are reachable from the editor too via **☰ Sets** in the top bar
   (tapping a song there opens its card instead of jumping stage view).
