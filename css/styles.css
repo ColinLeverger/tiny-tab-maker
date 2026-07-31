@@ -128,7 +128,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .row textarea{resize:vertical;min-height:2.4rem;line-height:1.35}
 .sub{margin:.55rem 0 .3rem;font-size:.8rem;font-weight:700;color:var(--head);text-transform:uppercase;letter-spacing:.03em}
 .pair{display:grid;grid-template-columns:15px 32% 1fr auto;gap:.35rem;margin-bottom:.35rem;align-items:center}
-.pair input{padding:.35rem .45rem;border:1px solid var(--line2);border-radius:6px}
+.pair input{min-width:0;padding:.35rem .45rem;border:1px solid var(--line2);border-radius:6px}
 .riff-row{display:grid;grid-template-columns:1fr auto auto auto;gap:.35rem;align-items:center;
   border:1px solid var(--line);border-radius:7px;padding:.4rem;margin-bottom:.35rem;background:#fafbfc}
 .riff-row .rl{font-weight:600}
@@ -199,7 +199,7 @@ body:not(.stage) #preview .songsheet:hover{outline:1px dashed var(--line2)}
 .cover .band{font-size:2.4rem;letter-spacing:.02em;margin:0;line-height:1.05}
 .cover .subtitle{font-style:italic;color:#444;margin:.2rem 0 .8rem}
 .cover .meta{font-size:.8rem;color:#555;margin:.2rem 0 1.2rem;line-height:1.6}
-.cover-table{width:100%;border-collapse:collapse;font-size:.84rem}
+.cover-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:.84rem}
 .cover-table th{background:var(--head);color:#fff;text-align:left;padding:.32rem .5rem;font-weight:600}
 .cover-table th:first-child{width:2.2rem}
 .cover-table td{padding:.28rem .5rem;border-bottom:1px solid #eef1f4}
