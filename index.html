@@ -49,20 +49,17 @@
     </div>
   </div>
 
-  <div class="data-tools">
-    <div class="menu">
-      <button class="btn ghost" id="dataBtn">Data ▾</button>
-      <div class="menu-pop" id="dataMenu">
-        <button data-act="import">📂 Import JSON…</button>
-        <button data-act="export">💾 Export JSON</button>
-        <button data-act="share">🔗 Copy share link (data in URL)</button>
-        <button data-act="export-memos">🎤 Export incl. voice memos…</button>
-        <button data-act="update">⟳ Update app (pull latest version)</button>
-        <button data-act="demo">✨ Load demo</button>
-        <button data-act="wipe">🗑 Clear all</button>
-      </div>
+  <div class="menu">
+    <button class="btn ghost" id="dataBtn">Data ▾</button>
+    <div class="menu-pop" id="dataMenu">
+      <button data-act="import">📂 Import JSON…</button>
+      <button data-act="export">💾 Export JSON</button>
+      <button data-act="share">🔗 Copy share link (data in URL)</button>
+      <button data-act="export-memos">🎤 Export incl. voice memos…</button>
+      <button data-act="update">⟳ Update app (pull latest version) <span id="appVersion" class="app-version" data-build="dev">––/–– ––:––</span></button>
+      <button data-act="demo">✨ Load demo</button>
+      <button data-act="wipe">🗑 Clear all</button>
     </div>
-    <span id="appVersion" class="app-version" data-build="dev">––/–– ––:––</span>
   </div>
   <input type="file" id="fileInput" accept="application/json,.json" hidden>
 </header>
