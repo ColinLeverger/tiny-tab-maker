@@ -837,14 +837,19 @@
   }
   function isNoteCol(e) { return e[0] !== "bar" && e[0] !== "repopen" && e[0] !== "repclose" && e[0] !== "mark" && e[0] !== "nl"; }
 
-  function openTabEditor(si, ri) {
+  function openTabEditor(si, ri, fromPreview) {
     var r = STATE.songs[si].riffs[ri];
-    TAB = { si: si, ri: ri, events: clone(r.tab || []) };
+    TAB = { si: si, ri: ri, events: clone(r.tab || []), fromPreview: !!fromPreview };
     $("#tabModalTitle").textContent = "Tab — " + (r.label || "Riff");
     drawGrid();
+    $("#tabModal .modal").scrollTop = 0;
     $("#tabModal").classList.add("open");
   }
-  function closeTab() { $("#tabModal").classList.remove("open"); TAB = null; }
+  function closeTab() {
+    var back = TAB && TAB.fromPreview;
+    $("#tabModal").classList.remove("open"); TAB = null;
+    if (back) setTimeout(dlBack, 0);
+  }
 
   function drawGrid() {
     var ev = TAB.events;
@@ -1551,17 +1556,21 @@
            winScroll: root.pageYOffset || 0, prevOpen: UI.openSong };
     $("#backBtn").hidden = false;
   }
-  $("#backBtn").addEventListener("click", function () {
-    this.hidden = true;
+  function dlBack() {
+    $("#backBtn").hidden = true;
     if (!DL) return;
-    UI.openSong = DL.prevOpen != null && DL.prevOpen < STATE.songs.length ? DL.prevOpen : null;
+    var dl = DL; DL = null;
+    var active = document.activeElement; if (active && active.blur) active.blur();
+    UI.openSong = dl.prevOpen != null && dl.prevOpen < STATE.songs.length ? dl.prevOpen : null;
     renderEditor();
-    var ed = $(".editor"), pw = $(".preview-wrap");
-    if (ed) ed.scrollTop = DL.edScroll;
-    if (pw) pw.scrollTop = DL.pvScroll;
-    if (root.scrollTo) root.scrollTo(0, DL.winScroll);
-    DL = null;
-  });
+    setTimeout(function () {
+      var ed = $(".editor"), pw = $(".preview-wrap");
+      if (ed) ed.scrollTop = dl.edScroll;
+      if (pw) pw.scrollTop = dl.pvScroll;
+      if (root.scrollTo) root.scrollTo(0, dl.winScroll);
+    }, root.innerWidth <= 880 ? 300 : 0);
+  }
+  $("#backBtn").addEventListener("click", dlBack);
 
   function deepLink(e) {
     if (document.body.classList.contains("stage")) return;
@@ -1576,11 +1585,10 @@
         : (tabEl.previousElementSibling && tabEl.previousElementSibling.classList.contains("tab-head")
            ? tabEl.previousElementSibling : null);
       var ri = myHead ? $$(".tab-head", sheet).indexOf(myHead) : -1;
-      if (ri >= 0 && STATE.songs[si] && STATE.songs[si].riffs[ri]) { openTabEditor(si, ri); return; }
+      if (ri >= 0 && STATE.songs[si] && STATE.songs[si].riffs[ri]) { openTabEditor(si, ri, true); return; }
     }
     UI.openSong = si; renderEditor();
     var card = $('[data-card="' + si + '"]');
-    if (card && card.scrollIntoView) card.scrollIntoView({ block: "start", behavior: "smooth" });
     var focusEl = null;
     var tr = e.target.closest(".chords tr");
     if (tr) {
@@ -1596,10 +1604,12 @@
       focusEl = $('input[data-song="' + si + '"][data-field="' + key + '"]');
     }
     if (focusEl) {
-      focusEl.focus();
+      try { focusEl.focus({ preventScroll: true }); } catch (_) { focusEl.focus(); }
       try { var L = focusEl.value.length; focusEl.setSelectionRange(L, L); } catch (_) {}
-      if (focusEl.scrollIntoView) focusEl.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
+      if (focusEl.scrollIntoView) setTimeout(function () {
+        focusEl.scrollIntoView({ block: "center", behavior: "auto" });
+      }, root.innerWidth <= 880 ? 350 : 0);
+    } else if (card && card.scrollIntoView) card.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   var preview = $("#preview"), touchStart = null, lastTap = null, touchLinkedAt = 0;

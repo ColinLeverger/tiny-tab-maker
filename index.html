@@ -285,18 +285,29 @@
   window.TTMUpdate = function () {
     return latest().then(function (v) {
       if (paint(v)) return "latest";
+      var reloading = false;
+      function reload() {
+        if (reloading) return;
+        reloading = true;
+        window.location.reload();
+      }
       return navigator.serviceWorker.getRegistration().then(function (reg) {
         if (reg && workerSha(reg.active) === v.sha) {
-          window.location.reload();
+          reload();
           return "reloading";
         }
-        navigator.serviceWorker.addEventListener("controllerchange", function () {
-          window.location.reload();
-        }, { once: true });
+        navigator.serviceWorker.addEventListener("controllerchange", reload, { once: true });
         return install(v).then(function (newReg) {
           if (workerSha(newReg.active) === v.sha) {
-            window.location.reload();
+            reload();
             return "reloading";
+          }
+          var worker = newReg.installing || newReg.waiting;
+          if (worker && worker.state === "activated") reload();
+          else if (worker) {
+            worker.addEventListener("statechange", function () {
+              if (worker.state === "activated") reload();
+            });
           }
           return "downloading";
         });
