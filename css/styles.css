@@ -382,6 +382,12 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
 .chord-pad .bs-chips{margin-bottom:.45rem}
 .chord-pad .chip small{display:block;color:var(--muted);font-size:.65rem}
 .chord-pad .chip.on small{color:inherit}
+.cp-context{position:fixed;z-index:72;top:calc(10px + env(safe-area-inset-top,0px));left:12px;right:12px;
+  max-width:536px;margin:auto;padding:.5rem .65rem;border:1px solid var(--line2);border-radius:10px;
+  background:#fff;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none}
+.cp-context small{display:block;margin-bottom:.15rem;color:var(--muted);font-size:.65rem;text-transform:uppercase}
+.cp-context div{font:600 .9rem/1.35 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+.cp-caret{display:inline-block;width:2px;height:1.1em;vertical-align:-.15em;background:var(--accent);margin:0 1px}
 .cp-compose{display:flex;align-items:center;gap:.6rem;margin:.7rem 0}
 #cpPreview{flex:1;padding:.55rem .7rem;border-radius:9px;background:#f0f2f5;font:700 1.2rem var(--mono)}
 #cpInsert{min-height:44px}

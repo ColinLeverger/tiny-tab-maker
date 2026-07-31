@@ -470,6 +470,9 @@
   function cpDraw() {
     if (!CP) return;
     $("#cpPreview").textContent = CP.root + CP.acc + CP.suffix;
+    var value = CP.input.value, start = Math.max(0, CP.at - 50), end = Math.min(value.length, CP.at + 70);
+    $("#cpBefore").textContent = (start ? "…" : "") + value.slice(start, CP.at);
+    $("#cpAfter").textContent = value.slice(CP.at, end) + (end < value.length ? "…" : "");
     $$("#chordPadModal [data-cp-root]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-root") === CP.root); });
     $$("#chordPadModal [data-cp-acc]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-acc") === CP.acc); });
     $$("#chordPadModal [data-cp-suffix]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-suffix") === CP.suffix); });
@@ -489,6 +492,7 @@
     CP.at += text.length;
     input.setSelectionRange(CP.at, CP.at);
     input.dispatchEvent(new Event("input", { bubbles: true }));
+    cpDraw();
   }
   $("#chordPadModal").addEventListener("click", function (e) {
     if (e.target === this) { closeChordPad(); return; }
