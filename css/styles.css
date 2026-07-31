@@ -236,6 +236,11 @@ pre.tab{font-family:var(--mono);font-size:calc(var(--fs,12pt) * 0.7);line-height
 .savestat{color:#cdd6e0;font-size:.78rem;opacity:0;transition:opacity .3s;white-space:nowrap}
 .savestat.show{opacity:.92}
 .savestat.warn{color:#ffd27a;opacity:1}
+.data-tools{display:flex;align-items:center;gap:.3rem;white-space:nowrap}
+.app-version{padding:.24rem .38rem;border-radius:999px;background:#6b7280;color:#fff;font-size:.64rem;
+  font-variant-numeric:tabular-nums;line-height:1}
+.app-version.latest{background:var(--ok)}
+.app-version.stale{background:#b3261e}
 
 /* PDF page-count readout in the top bar */
 .pagecount{color:#aeb9c6;font-size:.78rem;white-space:nowrap}
