@@ -1563,7 +1563,7 @@
     DL = null;
   });
 
-  $("#preview").addEventListener("dblclick", function (e) {
+  function deepLink(e) {
     if (document.body.classList.contains("stage")) return;
     var sheet = e.target.closest(".sheet.songsheet"); if (!sheet) return;
     var vi = $$("#preview .sheet.songsheet").indexOf(sheet); if (vi < 0) return;
@@ -1600,7 +1600,30 @@
       try { var L = focusEl.value.length; focusEl.setSelectionRange(L, L); } catch (_) {}
       if (focusEl.scrollIntoView) focusEl.scrollIntoView({ block: "center", behavior: "smooth" });
     }
+  }
+
+  var preview = $("#preview"), touchStart = null, lastTap = null, touchLinkedAt = 0;
+  preview.addEventListener("dblclick", function (e) {
+    if (Date.now() - touchLinkedAt > 500) deepLink(e);
   });
+  preview.addEventListener("pointerdown", function (e) {
+    if (e.pointerType === "touch" && e.isPrimary) touchStart = { x: e.clientX, y: e.clientY };
+  });
+  preview.addEventListener("pointerup", function (e) {
+    if (!touchStart || e.pointerType !== "touch") return;
+    var now = Date.now(), dx = e.clientX - touchStart.x, dy = e.clientY - touchStart.y;
+    touchStart = null;
+    if (Math.hypot(dx, dy) > 12) { lastTap = null; return; }
+    var sheet = e.target.closest(".sheet.songsheet");
+    if (!sheet) { lastTap = null; return; }
+    if (lastTap && sheet === lastTap.sheet && now - lastTap.at < 400 &&
+        Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+      lastTap = null; touchLinkedAt = now; e.preventDefault(); deepLink(e);
+    } else {
+      lastTap = { at: now, x: e.clientX, y: e.clientY, sheet: sheet };
+    }
+  });
+  preview.addEventListener("pointercancel", function () { touchStart = lastTap = null; });
 
   /* =====================================================================
    *  VOICE MEMOS — per song+section, IndexedDB (audio is too big for
