@@ -45,6 +45,10 @@ self.addEventListener("activate", function (e) {
 // cache-first with background refresh; stash anything new we fetch
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET") return;
+  if (new URL(e.request.url).pathname.endsWith("/version.json")) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then(function (hit) {
       var net = fetch(e.request).then(function (res) {

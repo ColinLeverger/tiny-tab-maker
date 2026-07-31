@@ -1085,32 +1085,17 @@
     }
   });
 
-  // manual "Update app": force a service-worker check; if a new version
-  // exists, wait for it to activate (new cache is pre-filled) then reload —
-  // one tap replaces the whole open-close-open dance.
+  // manual "Update app": version.json gives us a cache-proof deploy SHA;
+  // the page-level updater installs that exact worker and reloads on activation.
   function checkUpdate() {
     if (!("serviceWorker" in navigator)) { setStatus("⚠︎ no service-worker support here", true); return; }
+    if (!root.TTMUpdate) { setStatus("⚠︎ updater unavailable — reload once online", true); return; }
     setStatus("⟳ checking for update…");
-    navigator.serviceWorker.getRegistration().then(function (reg) {
-      if (!reg) { setStatus("⚠︎ service worker not registered yet — reload once online", true); return; }
-      var found = false;
-      reg.addEventListener("updatefound", function () {
-        found = true;
-        var nw = reg.installing; if (!nw) return;
-        setStatus("⟳ downloading new version…");
-        nw.addEventListener("statechange", function () {
-          if (nw.state === "activated") {
-            setStatus("✓ Updated — reloading…");
-            setTimeout(function () { root.location.reload(); }, 600);
-          } else if (nw.state === "redundant") {
-            setStatus("⚠︎ update failed — try again", true);
-          }
-        });
-      }, { once: true });
-      reg.update().then(function () {
-        setTimeout(function () { if (!found) setStatus("✓ Already the latest version"); }, 1500);
-      }).catch(function () { setStatus("⚠︎ update check failed (offline?)", true); });
-    }).catch(function () { setStatus("⚠︎ update check failed", true); });
+    root.TTMUpdate().then(function (state) {
+      if (state === "latest") setStatus("✓ Already the latest version");
+      else if (state === "downloading") setStatus("⟳ downloading new version…");
+      else setStatus("✓ Updated — reloading…");
+    }).catch(function () { setStatus("⚠︎ update check failed (offline?)", true); });
   }
 
   $("#fileInput").addEventListener("change", function () {

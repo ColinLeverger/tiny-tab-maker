@@ -61,6 +61,7 @@
       <button data-act="wipe">🗑 Clear all</button>
     </div>
   </div>
+  <span id="appVersion" class="savestat show" data-build="dev">● checking update…</span>
   <input type="file" id="fileInput" accept="application/json,.json" hidden>
 </header>
 
@@ -250,26 +251,68 @@
 <script src="js/pdf.js"></script>
 <script src="js/app.js"></script>
 <script>
-// PWA: offline cache — after one online visit the app works with no network.
-// When a NEW version's service worker activates (i.e., a real update, not the
-// first install), flash a green "Updated" toast for 10 s.
-if ("serviceWorker" in navigator) {
-  var hadSW = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function (reg) {
-    reg.addEventListener("updatefound", function () {
-      var nw = reg.installing;
-      if (!nw || !hadSW) return;                 // first install: nothing to announce
-      nw.addEventListener("statechange", function () {
-        if (nw.state !== "activated") return;
-        var t = document.createElement("div");
-        t.className = "updated-toast";
-        t.textContent = "✓ Updated";
-        document.body.appendChild(t);
-        setTimeout(function () { t.remove(); }, 10000);
+// Each deploy publishes version.json. Its SHA is part of the worker URL so an
+// update cannot be hidden for ten minutes by GitHub Pages' CDN cache.
+(function () {
+  var badge = document.getElementById("appVersion");
+  if (!badge || !("serviceWorker" in navigator)) return;
+
+  function latest() {
+    return fetch("version.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("version unavailable");
+      return r.json();
+    });
+  }
+  function paint(v) {
+    var fresh = badge.dataset.build === v.sha;
+    var when = new Date(v.deployedAt).toLocaleString([], {
+      year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
+    });
+    badge.textContent = "● Updated " + when;
+    badge.style.color = fresh ? "#7ee787" : "#ff7b72";
+    badge.title = fresh ? "Latest version" : "A newer version is available";
+    return fresh;
+  }
+  function workerSha(worker) {
+    return worker ? new URL(worker.scriptURL).searchParams.get("v") : "";
+  }
+  function install(v) {
+    return navigator.serviceWorker.register("sw.js?v=" + encodeURIComponent(v.sha), {
+      scope: "./", updateViaCache: "none"
+    });
+  }
+
+  window.TTMUpdate = function () {
+    return latest().then(function (v) {
+      if (paint(v)) return "latest";
+      return navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (reg && workerSha(reg.active) === v.sha) {
+          window.location.reload();
+          return "reloading";
+        }
+        navigator.serviceWorker.addEventListener("controllerchange", function () {
+          window.location.reload();
+        }, { once: true });
+        return install(v).then(function (newReg) {
+          if (workerSha(newReg.active) === v.sha) {
+            window.location.reload();
+            return "reloading";
+          }
+          return "downloading";
+        });
       });
     });
-  }).catch(function () {});
-}
+  };
+
+  latest().then(function (v) {
+    paint(v);
+    return install(v);
+  }).catch(function () {
+    badge.textContent = "● Update unknown";
+    badge.style.color = "#ff7b72";
+    badge.title = "Could not check the deployed version";
+  });
+})();
 </script>
 </body>
 </html>

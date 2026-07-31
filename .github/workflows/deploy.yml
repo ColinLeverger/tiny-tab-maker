@@ -24,10 +24,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Auto-version the service worker: every deploy gets its own cache name,
-      # so nobody ever has to bump VERSION by hand.
-      - name: Stamp SW version with commit SHA
-        run: sed -i 's/^var VERSION = .*/var VERSION = "ttm-${{ github.sha }}";/' sw.js
+      # Give the worker, loaded page and network-only version check one shared
+      # release identity. The timestamp is rendered in the user's local time.
+      - name: Stamp release version
+        run: |
+          sha="${{ github.sha }}"
+          deployed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          sed -i "s/^var VERSION = .*/var VERSION = \"ttm-$sha\";/" sw.js
+          sed -i "s/data-build=\"[^\"]*\"/data-build=\"$sha\"/" index.html
+          printf '{"sha":"%s","deployedAt":"%s"}\n' "$sha" "$deployed_at" > version.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
