@@ -166,6 +166,50 @@
   </div>
 </div>
 
+<!-- ===== CHORD PAD (mobile editor helper; still writes plain text) ===== -->
+<div class="modal-bg bs-bg" id="chordPadModal">
+  <div class="bsheet chord-pad">
+    <div class="bs-head"><h3>Chord pad</h3><button class="btn sm" id="cpClose">✕</button></div>
+    <div class="sub">Root</div>
+    <div class="bs-chips" id="cpRoots">
+      <button class="chip" data-cp-root="A">A <small>la</small></button>
+      <button class="chip" data-cp-root="B">B <small>si</small></button>
+      <button class="chip" data-cp-root="C">C <small>do</small></button>
+      <button class="chip" data-cp-root="D">D <small>ré</small></button>
+      <button class="chip" data-cp-root="E">E <small>mi</small></button>
+      <button class="chip" data-cp-root="F">F <small>fa</small></button>
+      <button class="chip" data-cp-root="G">G <small>sol</small></button>
+    </div>
+    <div class="sub">Accidental</div>
+    <div class="bs-chips" id="cpAccidentals">
+      <button class="chip" data-cp-acc="b">♭</button>
+      <button class="chip" data-cp-acc="">♮</button>
+      <button class="chip" data-cp-acc="#">♯</button>
+    </div>
+    <div class="sub">Quality</div>
+    <div class="bs-chips" id="cpSuffixes">
+      <button class="chip" data-cp-suffix="">Major</button>
+      <button class="chip" data-cp-suffix="m">m</button>
+      <button class="chip" data-cp-suffix="7">7</button>
+      <button class="chip" data-cp-suffix="maj7">maj7</button>
+      <button class="chip" data-cp-suffix="m7">m7</button>
+      <button class="chip" data-cp-suffix="dim">dim</button>
+      <button class="chip" data-cp-suffix="aug">aug</button>
+      <button class="chip" data-cp-suffix="sus2">sus2</button>
+      <button class="chip" data-cp-suffix="sus4">sus4</button>
+    </div>
+    <div class="cp-compose"><output id="cpPreview">C</output><button class="btn primary" id="cpInsert">Insert chord</button></div>
+    <div class="sub">Separators / notes</div>
+    <div class="bs-chips cp-tools">
+      <button class="chip" data-cp-text=" ">Space</button>
+      <button class="chip" data-cp-text=" | ">|</button>
+      <button class="chip" data-cp-text=" → ">→</button>
+      <button class="chip" data-cp-text="/">/</button>
+      <button class="chip" id="cpKeyboard">⌨ Free text</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== SETLIST OVERLAY (stage view: jump / reorder / share) ===== -->
 <div class="modal-bg bs-bg" id="setModal">
   <div class="bsheet">

@@ -184,7 +184,8 @@
       return '<div class="pair">' +
         '<span class="grip" draggable="true" data-drag="chord" data-song="' + i + '" data-ci="' + ci + '" title="Drag to reorder">⠿</span>' +
         '<input data-song="' + i + '" data-ci="' + ci + '" data-part="label" value="' + esc(c.label) + '" placeholder="Section">' +
-        '<input data-song="' + i + '" data-ci="' + ci + '" data-part="value" value="' + esc(c.value) + '" placeholder="Chords / text">' +
+        '<div class="chord-value"><input data-song="' + i + '" data-ci="' + ci + '" data-part="value" value="' + esc(c.value) + '" placeholder="Chords / text">' +
+        '<button class="btn sm chord-pad-open" data-act="chordPad" data-song="' + i + '" data-ci="' + ci + '" title="Open chord pad" aria-label="Open chord pad">♭＋</button></div>' +
         '<button class="btn sm danger" data-act="delChord" data-song="' + i + '" data-ci="' + ci + '">✕</button>' +
         "</div>";
     }).join("");
@@ -384,6 +385,7 @@
   // field becomes a single undo step (committed on the first keystroke).
   document.addEventListener("focusin", function (e) {
     var t = e.target;
+    if (t && t.matches && t.matches('input[data-part="value"]')) lastChordField = t;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA") && !t.readOnly &&
         (t.hasAttribute("data-song") || t.hasAttribute("data-meta"))) {
       pendingSnap = clone(STATE); pendingCommitted = false;
@@ -428,7 +430,7 @@
     if (tog != null) { UI.openSong = (UI.openSong === +tog) ? null : +tog; renderEditor(); return; }
     var act = btn.getAttribute("data-act");
     var si = +btn.getAttribute("data-song"); var s = STATE.songs[si];
-    if (act !== "editTab") touchUpdated();            // any structural edit stamps the date
+    if (act !== "editTab" && act !== "chordPad") touchUpdated(); // opening a tool changes nothing
     if (act === "up" || act === "down") {
       e.stopPropagation();
       var j = act === "up" ? si - 1 : si + 1;
@@ -444,6 +446,7 @@
     if (act === "addRiff") { pushHistory(); s.riffs.push({ label: "Riff", note: "", tab: null }); renderAll(); return; }
     if (act === "delRiff") { pushHistory(); s.riffs.splice(+btn.getAttribute("data-ri"), 1); renderAll(); return; }
     if (act === "editTab") { openTabEditor(si, +btn.getAttribute("data-ri")); return; }
+    if (act === "chordPad") { openChordPad(btn.parentElement.querySelector('input[data-part="value"]')); return; }
     if (act === "rhColor") {
       var rk1 = btn.getAttribute("data-sec"), e1 = s.rehearsal && s.rehearsal[rk1];
       if (!e1) return;
@@ -460,6 +463,51 @@
       renderAll(); return;
     }
     if (act === "tapTempo") { e.stopPropagation(); tapTempoClick(si, e); return; }
+  });
+
+  /* ---- mobile chord pad: inserts plain text into the existing field ---- */
+  var CP = null, lastChordField = null;
+  function cpDraw() {
+    if (!CP) return;
+    $("#cpPreview").textContent = CP.root + CP.acc + CP.suffix;
+    $$("#chordPadModal [data-cp-root]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-root") === CP.root); });
+    $$("#chordPadModal [data-cp-acc]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-acc") === CP.acc); });
+    $$("#chordPadModal [data-cp-suffix]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-suffix") === CP.suffix); });
+  }
+  function openChordPad(input) {
+    if (!input) return;
+    var at = lastChordField === input && input.selectionStart != null ? input.selectionStart : input.value.length;
+    CP = { input: input, at: at, root: "C", acc: "", suffix: "", changed: false };
+    input.blur(); cpDraw(); $("#chordPadModal").classList.add("open");
+  }
+  function closeChordPad() { $("#chordPadModal").classList.remove("open"); CP = null; }
+  function cpInsert(text) {
+    if (!CP) return;
+    if (!CP.changed) { pendingSnap = clone(STATE); pendingCommitted = false; CP.changed = true; }
+    var input = CP.input, at = CP.at;
+    input.value = input.value.slice(0, at) + text + input.value.slice(at);
+    CP.at += text.length;
+    input.setSelectionRange(CP.at, CP.at);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  $("#chordPadModal").addEventListener("click", function (e) {
+    if (e.target === this) { closeChordPad(); return; }
+    var b = e.target.closest("button"); if (!b || !CP) return;
+    if (b.hasAttribute("data-cp-root")) CP.root = b.getAttribute("data-cp-root");
+    else if (b.hasAttribute("data-cp-acc")) CP.acc = b.getAttribute("data-cp-acc");
+    else if (b.hasAttribute("data-cp-suffix")) CP.suffix = b.getAttribute("data-cp-suffix");
+    else if (b.hasAttribute("data-cp-text")) { cpInsert(b.getAttribute("data-cp-text")); return; }
+    else return;
+    cpDraw();
+  });
+  $("#cpInsert").addEventListener("click", function () { if (CP) cpInsert(CP.root + CP.acc + CP.suffix); });
+  $("#cpClose").addEventListener("click", closeChordPad);
+  $("#cpKeyboard").addEventListener("click", function () {
+    if (!CP) return;
+    var input = CP.input, at = CP.at; closeChordPad();
+    try { input.focus({ preventScroll: true }); } catch (_) { input.focus(); }
+    input.setSelectionRange(at, at);
+    setTimeout(function () { input.scrollIntoView({ block: "center", behavior: "auto" }); }, 350);
   });
 
   /* =====================================================================
@@ -2266,6 +2314,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       if ($("#tabZoom").classList.contains("open")) { closeTabZoom(); return; }
+      if (CP) { closeChordPad(); return; }
       if (RH) { closeRh(); return; }
       if (RV) { closeReview(); return; }
       if ($("#digestModal").classList.contains("open")) { closeDigest(); return; }
