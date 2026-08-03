@@ -425,6 +425,8 @@
 
   // clicks: structural changes -> rebuild editor
   $("#editor-list").addEventListener("click", function (e) {
+    var chordInput = e.target.closest('input[data-part="value"]');
+    if (chordInput) { openChordPad(chordInput, true); return; }
     var btn = e.target.closest("[data-act],[data-toggle]"); if (!btn) return;
     var tog = btn.getAttribute("data-toggle");
     if (tog != null) { UI.openSong = (UI.openSong === +tog) ? null : +tog; renderEditor(); return; }
@@ -477,13 +479,25 @@
     $$("#chordPadModal [data-cp-acc]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-acc") === CP.acc); });
     $$("#chordPadModal [data-cp-suffix]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-suffix") === CP.suffix); });
   }
-  function openChordPad(input) {
+  function openChordPad(input, freeText) {
     if (!input) return;
     var at = lastChordField === input && input.selectionStart != null ? input.selectionStart : input.value.length;
     CP = { input: input, at: at, root: "C", acc: "", suffix: "", changed: false };
     input.blur(); cpDraw(); $("#chordPadModal").classList.add("open");
+    document.documentElement.classList.add("cp-open"); document.body.classList.add("cp-open");
+    if (freeText) focusChordText();
   }
-  function closeChordPad() { $("#chordPadModal").classList.remove("open"); CP = null; }
+  function closeChordPad() {
+    $("#chordPadModal").classList.remove("open");
+    document.documentElement.classList.remove("cp-open"); document.body.classList.remove("cp-open");
+    CP = null;
+  }
+  function focusChordText() {
+    if (!CP) return;
+    var edit = $("#cpText");
+    try { edit.focus({ preventScroll: true }); } catch (_) { edit.focus(); }
+    edit.setSelectionRange(CP.at, CP.at);
+  }
   function cpInsert(text) {
     if (!CP) return;
     if (!CP.changed) { pendingSnap = clone(STATE); pendingCommitted = false; CP.changed = true; }
@@ -516,12 +530,7 @@
     CP.input.setSelectionRange(CP.at, CP.at);
     CP.input.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  $("#cpKeyboard").addEventListener("click", function () {
-    if (!CP) return;
-    var edit = $("#cpText");
-    try { edit.focus({ preventScroll: true }); } catch (_) { edit.focus(); }
-    edit.setSelectionRange(CP.at, CP.at);
-  });
+  $("#cpKeyboard").addEventListener("click", focusChordText);
 
   /* =====================================================================
    *  TAP TEMPO PAD — the 🥁 next to a Tempo field opens a BIG fixed pad
