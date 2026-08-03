@@ -282,7 +282,10 @@
       return;
     }
     host.innerHTML = STATE.songs.map(songCard).join("");
+    $$(".rnote", host).forEach(fitText);
   }
+
+  function fitText(t) { t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; }
 
   /* ---------------- setlists: stable ids + active set ---------------- */
   // Setlists reference songs by id, so reordering/renaming the book never
@@ -395,6 +398,7 @@
   // text inputs: mutate in place, do NOT rebuild editor (keep focus)
   document.addEventListener("input", function (e) {
     var t = e.target;
+    if (t.classList && t.classList.contains("rnote")) fitText(t);
     if (t.hasAttribute && t.hasAttribute("data-meta")) {
       var mk = t.getAttribute("data-meta");
       commitPending();
