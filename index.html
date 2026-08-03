@@ -335,6 +335,7 @@
     badge.classList.toggle("latest", fresh);
     badge.classList.toggle("stale", !fresh);
     badge.title = fresh ? "Latest version" : "A newer version is available";
+    if (window.setMobileUpdateState) window.setMobileUpdateState(fresh ? "latest" : "stale");
     return fresh;
   }
   function workerSha(worker) {
@@ -353,6 +354,7 @@
       function reload() {
         if (reloading) return;
         reloading = true;
+        try { sessionStorage.setItem("ttm-update-ok", "1"); } catch (_) {}
         window.location.reload();
       }
       return navigator.serviceWorker.getRegistration().then(function (reg) {
@@ -379,13 +381,17 @@
     });
   };
 
+  if (window.setMobileUpdateState) window.setMobileUpdateState("checking");
   latest().then(function (v) {
-    paint(v);
+    var fresh = paint(v), updated = false;
+    try { updated = fresh && sessionStorage.getItem("ttm-update-ok") === "1"; if (updated) sessionStorage.removeItem("ttm-update-ok"); } catch (_) {}
+    if (updated && window.setMobileUpdateState) window.setMobileUpdateState("success");
     return install(v);
   }).catch(function () {
     badge.textContent = "update ?";
     badge.classList.add("stale");
     badge.title = "Could not check the deployed version";
+    if (window.setMobileUpdateState) window.setMobileUpdateState("stale");
   });
 })();
 </script>

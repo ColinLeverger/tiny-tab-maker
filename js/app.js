@@ -1125,9 +1125,14 @@
   })();
 
   function toggleMenu(id) {
-    $$(".menu-pop").forEach(function (m) { if (m.id !== id) m.classList.remove("open"); });
+    $$(".menu-pop").forEach(function (m) {
+      if (m.id !== id) { m.classList.remove("open"); m.parentNode.classList.remove("submenu-active"); }
+    });
     var pop = $("#" + id);
     pop.classList.toggle("open");
+    var mobileMore = $("#mobileMoreModal"), inMobileMore = pop.closest("#mobileMoreContent");
+    pop.parentNode.classList.toggle("submenu-active", !!inMobileMore && pop.classList.contains("open"));
+    if (mobileMore) mobileMore.classList.toggle("submenu-open", !!inMobileMore && pop.classList.contains("open"));
     // phones: anchored-absolute pops overflow the viewport -> pin them
     // full-width under their button instead
     if (pop.classList.contains("open") && root.innerWidth <= 880) {
@@ -1143,7 +1148,10 @@
   }
   $("#genBtn").addEventListener("click", function (e) { e.stopPropagation(); toggleMenu("genMenu"); });
   $("#dataBtn").addEventListener("click", function (e) { e.stopPropagation(); toggleMenu("dataMenu"); });
-  document.addEventListener("click", function () { $$(".menu-pop").forEach(function (m) { m.classList.remove("open"); }); });
+  document.addEventListener("click", function () {
+    $$(".menu-pop").forEach(function (m) { m.classList.remove("open"); m.parentNode.classList.remove("submenu-active"); });
+    var mobileMore = $("#mobileMoreModal"); if (mobileMore) mobileMore.classList.remove("submenu-open");
+  });
 
   $("#genMenu").addEventListener("click", function (e) {
     var a = e.target.getAttribute("data-act"); if (!a) return;
@@ -1175,15 +1183,27 @@
 
   // manual "Update app": version.json gives us a cache-proof deploy SHA;
   // the page-level updater installs that exact worker and reloads on activation.
+  var updateStateTimer;
+  root.setMobileUpdateState = function (state) {
+    var button = $('.mobile-dock [data-mobile="update"]'); if (!button) return;
+    clearTimeout(updateStateTimer);
+    button.classList.remove("checking", "stale", "latest", "success");
+    if (state) button.classList.add(state);
+    if (state === "success") {
+      button.classList.add("latest");
+      updateStateTimer = setTimeout(function () { button.classList.remove("success"); }, 1200);
+    }
+  };
   function checkUpdate() {
-    if (!("serviceWorker" in navigator)) { setStatus("⚠︎ no service-worker support here", true); return; }
-    if (!root.TTMUpdate) { setStatus("⚠︎ updater unavailable — reload once online", true); return; }
+    root.setMobileUpdateState("checking");
+    if (!("serviceWorker" in navigator)) { root.setMobileUpdateState("stale"); setStatus("⚠︎ no service-worker support here", true); return; }
+    if (!root.TTMUpdate) { root.setMobileUpdateState("stale"); setStatus("⚠︎ updater unavailable — reload once online", true); return; }
     setStatus("⟳ checking for update…");
     root.TTMUpdate().then(function (state) {
-      if (state === "latest") setStatus("✓ Already the latest version");
-      else if (state === "downloading") setStatus("⟳ downloading new version…");
-      else setStatus("✓ Updated — reloading…");
-    }).catch(function () { setStatus("⚠︎ update check failed (offline?)", true); });
+      if (state === "latest") { root.setMobileUpdateState("success"); setStatus("✓ Already the latest version"); }
+      else if (state === "downloading") { root.setMobileUpdateState("checking"); setStatus("⟳ downloading new version…"); }
+      else { root.setMobileUpdateState("checking"); setStatus("✓ Updated — reloading…"); }
+    }).catch(function () { root.setMobileUpdateState("stale"); setStatus("⚠︎ update check failed (offline?)", true); });
   }
 
   $("#fileInput").addEventListener("change", function () {
@@ -1945,7 +1965,9 @@
           esc(sl.name) + " (" + sl.songs.length + ")</option>";
       }).join("") + "</select>" +
       '<button class="btn sm" id="setNew" title="New setlist">＋ New</button>' +
-      (al ? '<button class="btn sm danger" id="setDelList" title="Delete this setlist">🗑</button>' : "");
+      (al ? '<button class="btn sm" id="setRename" title="Rename this setlist">✎</button>' +
+        '<button class="btn sm" id="setDuplicate" title="Duplicate this setlist">⧉</button>' +
+        '<button class="btn sm danger" id="setDelList" title="Delete this setlist">🗑</button>' : "");
 
     var html;
     if (!al) {
@@ -2011,6 +2033,16 @@
       if (!name) return;
       pushHistory();
       STATE.setlists.push({ name: name, songs: [] });
+      STATE.activeSet = STATE.setlists.length - 1;
+      renderAll(); drawSetlist();
+    } else if (e.target.id === "setRename") {
+      var current = activeSetlist(); if (!current) return;
+      var renamed = prompt("Setlist name:", current.name); if (!renamed || !renamed.trim()) return;
+      pushHistory(); current.name = renamed.trim(); renderAll(); drawSetlist();
+    } else if (e.target.id === "setDuplicate") {
+      var source = activeSetlist(); if (!source) return;
+      pushHistory();
+      STATE.setlists.push({ name: source.name + " copy", songs: source.songs.slice() });
       STATE.activeSet = STATE.setlists.length - 1;
       renderAll(); drawSetlist();
     } else if (e.target.id === "setDelList") {
@@ -2348,6 +2380,7 @@
   // keyboard: Esc closes modal / leaves View; arrows flip songs in View mode
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
+      if ($("#mobileMoreModal").classList.contains("open")) { $("#mobileMoreClose").click(); return; }
       if ($("#tabZoom").classList.contains("open")) { closeTabZoom(); return; }
       if (CP) { closeChordPad(); return; }
       if (RH) { closeRh(); return; }
@@ -2395,6 +2428,10 @@
     }
     function close() {
       modal.classList.remove("open");
+      modal.classList.remove("submenu-open");
+      $$("#mobileMoreContent .menu-pop").forEach(function (pop) {
+        pop.classList.remove("open"); pop.parentNode.classList.remove("submenu-active");
+      });
       dock.querySelector('[data-mobile="more"]').setAttribute("aria-expanded", "false");
     }
     var targets = {

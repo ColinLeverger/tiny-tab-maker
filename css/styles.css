@@ -543,9 +543,15 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
   .mobile-dock button span{display:block;font-size:1.05rem;line-height:1.25}
   .mobile-dock button:active{background:rgba(255,255,255,.16)}
   .mobile-dock button:disabled{opacity:.35}
+  .mobile-dock button[data-mobile=update].stale{background:#b3261e}
+  .mobile-dock button[data-mobile=update].latest,
+  .mobile-dock button[data-mobile=update].success{background:var(--ok)}
+  .mobile-dock button[data-mobile=update].checking span{animation:update-spin .8s linear infinite}
+  .mobile-dock button[data-mobile=update].success{animation:update-ok .8s ease-out}
   .layout{padding-bottom:calc(55px + env(safe-area-inset-bottom,0px))}
   #mobileMoreModal.open{display:flex}
   .mobile-more-sheet{max-height:75vh}
+  .mobile-more-sheet>.bs-head{position:sticky;top:0;z-index:2;background:#fff}
   #mobileMoreContent{display:flex;flex-direction:column;gap:.65rem}
   #mobileMoreContent .field{justify-content:space-between;color:var(--ink);min-height:38px}
   #mobileMoreContent .field input[type=number]{width:5rem}
@@ -554,6 +560,9 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
   #mobileMoreContent>.menu>#genBtn{color:#fff}
   #mobileMoreContent .menu-pop.open{position:static!important;inset:auto!important;max-width:none!important;
     margin-top:.3rem;box-shadow:none}
+  #mobileMoreModal.submenu-open .mobile-more-sheet{max-height:calc(100dvh - env(safe-area-inset-top,0px));overflow:hidden}
+  #mobileMoreModal.submenu-open #mobileMoreContent>*{display:none}
+  #mobileMoreModal.submenu-open #mobileMoreContent>.menu.submenu-active{display:block}
   #mobileMoreContent .pagecount,#mobileMoreContent .savestat{color:var(--muted)}
   body.stage .mobile-dock{display:none}
   body.stage .layout{padding-bottom:0}
@@ -562,6 +571,9 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
   .sheet{width:100%;padding:8mm 6mm}
   .pagegroup{max-width:100%}
 }
+@keyframes update-spin{to{transform:rotate(360deg)}}
+@keyframes update-ok{50%{transform:scale(1.08)}}
+@media(prefers-reduced-motion:reduce){.mobile-dock button[data-mobile=update]{animation:none!important}.mobile-dock button[data-mobile=update] span{animation:none!important}}
 
 /* =====================================================================
  *  PRINT  ->  A4, only the sheets
