@@ -1287,7 +1287,7 @@
       syncStatus("error", error.message); throw error;
     }).finally(function () { button.disabled = false; });
   }
-  $("#syncBtn").addEventListener("click", runSync);
+  $("#syncBtn").addEventListener("click", openSyncSettings);
   $("#syncClose").addEventListener("click", closeSyncSettings);
   $("#syncModal").addEventListener("click", function (e) { if (e.target === $("#syncModal")) closeSyncSettings(); });
   $("#syncDisconnect").addEventListener("click", function () {

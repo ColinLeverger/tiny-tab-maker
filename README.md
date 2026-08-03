@@ -181,7 +181,8 @@ private GitHub repository using the Contents API:
 4. On the first device choose **Push this device**. Use **List** and **Load**
    to select that songbook on each additional device.
 
-One repository can contain any number of JSON songbooks. **List** discovers
+One repository can contain any number of JSON songbooks. On laptops, the
+always-visible **Songbooks** button opens this library directly. **List** discovers
 both older root files such as `songbook.json` and newer files under
 `songbooks/`. **Choose a new songbook filename** prepares a separate path;
 **Push this device** creates it without touching the other books.
