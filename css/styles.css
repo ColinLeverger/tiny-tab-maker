@@ -384,7 +384,7 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
 .bs-actions .btn{min-height:42px;padding:.5rem 1.1rem}
 .chord-pad .bs-chips{margin-bottom:.45rem}
 .chord-pad{overscroll-behavior:contain}
-#chordPadModal{bottom:-1px} /* cover iOS's sub-pixel seam at the viewport edge */
+#chordPadModal{bottom:calc(-1px - env(safe-area-inset-bottom,0px))}
 .chord-pad .chip small{display:block;color:var(--muted);font-size:.65rem}
 .chord-pad .chip.on small{color:inherit}
 .cp-context{position:fixed;z-index:72;top:calc(10px + env(safe-area-inset-top,0px));left:12px;right:12px;
