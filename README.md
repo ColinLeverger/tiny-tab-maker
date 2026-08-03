@@ -176,10 +176,15 @@ private GitHub repository using the Contents API:
 2. Create a fine-grained personal access token limited to that repository,
    with **Repository permissions → Contents: Read and write** only.
 3. In the app open *Data → GitHub sync settings*, enter
-   `owner/repository`, the branch (normally `main`), `songbook.json`, and the
-   token.
-4. On the first device choose **Push this device**. On each additional device
-   choose **Save & pull**.
+   `owner/repository`, the branch (normally `main`), a distinct file such as
+   `songbooks/my-band.json`, and the token.
+4. On the first device choose **Push this device**. Use **List** and **Load**
+   to select that songbook on each additional device.
+
+One repository can contain any number of JSON songbooks. **List** discovers
+both older root files such as `songbook.json` and newer files under
+`songbooks/`. **Choose a new songbook filename** prepares a separate path;
+**Push this device** creates it without touching the other books.
 
 Local edits save immediately and sync after 30 seconds of inactivity. The app
 also checks GitHub on startup, focus, reconnect, or *Data → Sync now*. GitHub's

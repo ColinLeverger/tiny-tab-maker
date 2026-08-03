@@ -1172,7 +1172,7 @@
       link.href = url; link.download = "songbook-data.json"; link.click();
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     } else if (a === "share") { copyShare(null); }
-    else if (a === "sync") { if (gitSync && gitSync.configured()) gitSync.syncNow().catch(function () {}); else openSyncSettings(); }
+    else if (a === "sync") { runSync(); }
     else if (a === "sync-settings") { openSyncSettings(); }
     else if (a === "update") { checkUpdate(); }
     else if (a === "export-memos") { exportWithMemos(); }
@@ -1214,12 +1214,13 @@
   function syncStatus(kind, text) {
     var badge = $("#syncBadge"), state = $("#syncState"), more = $('.mobile-dock [data-mobile="more"]');
     var labels = { off: "Off", dirty: "Unsaved", syncing: "Syncing…", ok: "Ready", conflict: "Conflict", error: "Error" };
-    if (badge) {
-      badge.textContent = labels[kind] || kind;
-      badge.classList.toggle("latest", kind === "ok");
-      badge.classList.toggle("stale", kind === "conflict" || kind === "error");
-      badge.title = text || "";
-    }
+    [badge, $("#desktopSyncBadge")].forEach(function (item) {
+      if (!item) return;
+      item.textContent = labels[kind] || kind;
+      item.classList.toggle("latest", kind === "ok");
+      item.classList.toggle("stale", kind === "conflict" || kind === "error");
+      item.title = text || "";
+    });
     if (state) {
       state.textContent = text || labels[kind] || "";
       state.classList.toggle("ok", kind === "ok");
@@ -1235,28 +1236,78 @@
     if (kind === "conflict" || kind === "error") setStatus("⚠︎ " + text, true);
     else if (kind === "ok") setStatus("☁ " + text);
   }
+  function suggestedSyncPath(name) {
+    var label = (name || (STATE.meta && (STATE.meta.band || STATE.meta.subtitle)) || "my-songbook").replace(/\.json$/i, "");
+    try { label = label.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); } catch (_) {}
+    var slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "my-songbook";
+    return "songbooks/" + slug + ".json";
+  }
+  function syncForm(path) {
+    return {
+      repo: $("#syncRepo").value, branch: $("#syncBranch").value,
+      path: path || $("#syncPath").value, token: $("#syncToken").value
+    };
+  }
+  function runSync() {
+    if (gitSync && gitSync.configured()) gitSync.syncNow().catch(function () {});
+    else openSyncSettings();
+  }
   function openSyncSettings() {
     if (!gitSync) { alert("GitHub sync is unavailable — update the app and try again."); return; }
     var config = gitSync.config() || {};
     $("#syncRepo").value = config.repo || "";
     $("#syncBranch").value = config.branch || "main";
-    $("#syncPath").value = config.path || "songbook.json";
+    $("#syncPath").value = config.path || suggestedSyncPath();
     $("#syncToken").value = config.token || "";
+    $("#syncRemote").innerHTML = '<option value="">Refresh to list songbooks…</option>';
+    $("#syncLoad").disabled = true;
     if ($("#mobileMoreModal").classList.contains("open")) $("#mobileMoreClose").click();
     $("#syncModal").classList.add("open");
+    if (config.repo && config.token) refreshSyncFiles().catch(function () {});
   }
   function closeSyncSettings() { $("#syncModal").classList.remove("open"); }
   function configureSync() {
-    gitSync.configure({
-      repo: $("#syncRepo").value, branch: $("#syncBranch").value,
-      path: $("#syncPath").value, token: $("#syncToken").value
-    });
+    gitSync.configure(syncForm());
   }
+  function refreshSyncFiles() {
+    var select = $("#syncRemote"), button = $("#syncRefresh"), load = $("#syncLoad");
+    button.disabled = true; load.disabled = true;
+    select.innerHTML = '<option value="">Loading…</option>';
+    return gitSync.listFiles(syncForm()).then(function (files) {
+      select.innerHTML = "";
+      select.appendChild(new Option(files.length ? "Select a GitHub songbook…" : "No JSON songbooks found", ""));
+      files.forEach(function (path) { select.appendChild(new Option(path, path)); });
+      var current = $("#syncPath").value;
+      if (files.indexOf(current) >= 0) select.value = current;
+      load.disabled = !select.value;
+      $("#syncState").textContent = files.length + " songbook" + (files.length === 1 ? "" : "s") + " found";
+      return files;
+    }).catch(function (error) {
+      select.innerHTML = '<option value="">Could not list songbooks</option>';
+      syncStatus("error", error.message); throw error;
+    }).finally(function () { button.disabled = false; });
+  }
+  $("#syncBtn").addEventListener("click", runSync);
   $("#syncClose").addEventListener("click", closeSyncSettings);
   $("#syncModal").addEventListener("click", function (e) { if (e.target === $("#syncModal")) closeSyncSettings(); });
   $("#syncDisconnect").addEventListener("click", function () {
     if (!gitSync || !gitSync.configured() || !confirm("Disconnect this device from GitHub sync? Local data stays here.")) return;
     gitSync.disconnect(); closeSyncSettings();
+  });
+  $("#syncRefresh").addEventListener("click", function () { refreshSyncFiles().catch(function () {}); });
+  $("#syncRemote").addEventListener("change", function () { $("#syncLoad").disabled = !this.value; });
+  $("#syncLoad").addEventListener("click", function () {
+    var path = $("#syncRemote").value; if (!path) return;
+    if (!confirm('Load "' + path + '" from GitHub?\n\nThe current local songbook remains available through Undo.')) return;
+    $("#syncPath").value = path;
+    try { configureSync(); gitSync.pull(true, false).then(closeSyncSettings).catch(function () {}); }
+    catch (error) { syncStatus("error", error.message); }
+  });
+  $("#syncNew").addEventListener("click", function () {
+    var name = prompt("New songbook filename:", (STATE.meta && (STATE.meta.band || STATE.meta.subtitle)) || "my songbook");
+    if (!name) return;
+    $("#syncPath").value = suggestedSyncPath(name);
+    $("#syncRemote").value = ""; $("#syncLoad").disabled = true;
   });
   $("#syncPull").addEventListener("click", function () {
     if (!confirm("Save these settings and load the GitHub songbook if it exists?\n\nYour current version remains available through Undo.")) return;

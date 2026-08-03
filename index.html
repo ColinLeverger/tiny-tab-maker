@@ -34,6 +34,7 @@
   <span id="saveStatus" class="savestat" title="Your data stays in this browser, even after closing"></span>
 
   <button class="btn ghost" id="undoBtn" title="Undo last change (Ctrl/Cmd+Z)" disabled>↶ Undo</button>
+  <button class="btn ghost" id="syncBtn" title="Sync the current songbook with GitHub">☁ Sync <span id="desktopSyncBadge" class="app-version">Off</span></button>
   <select id="scopeSel" class="scope-sel" title="View scope — what the preview, Print and PDF show"></select>
   <button class="btn ghost" id="setBtn" title="Setlists — switch, build, reorder">☰ Sets</button>
   <a class="btn ghost" id="tapLink" href="tap.html" title="Tap tempo &amp; metronome">🥁 Tap</a>
@@ -302,8 +303,17 @@
     <div class="sync-grid">
       <label>Repository <input id="syncRepo" placeholder="owner/private-repository" autocomplete="off" autocapitalize="none"></label>
       <label>Branch <input id="syncBranch" value="main" autocomplete="off" autocapitalize="none"></label>
-      <label>File <input id="syncPath" value="songbook.json" autocomplete="off" autocapitalize="none"></label>
+      <label>Current file <input id="syncPath" value="songbooks/my-songbook.json" autocomplete="off" autocapitalize="none"></label>
       <label>Fine-grained token <input id="syncToken" type="password" autocomplete="off" autocapitalize="none"></label>
+    </div>
+    <div class="sync-library">
+      <label for="syncRemote">Load a songbook from GitHub</label>
+      <div class="sync-picker">
+        <select id="syncRemote"><option value="">Refresh to list songbooks…</option></select>
+        <button class="btn" id="syncRefresh">↻ List</button>
+        <button class="btn primary" id="syncLoad" disabled>Load</button>
+      </div>
+      <button class="btn sm" id="syncNew">＋ Choose a new songbook filename</button>
     </div>
     <p class="sync-help"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">Create a fine-grained token on GitHub ↗</a>. It stays in this browser and should access only the data repository.</p>
     <div id="syncState" class="sync-state">Sync off</div>

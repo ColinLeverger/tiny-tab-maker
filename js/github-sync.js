@@ -30,24 +30,24 @@
     var parts = config.path.split("/").map(encodeURIComponent).join("/");
     return "https://api.github.com/repos/" + config.repo + "/contents/" + parts;
   }
+  function authHeaders(config) {
+    return {
+      Accept: "application/vnd.github+json",
+      Authorization: "Bearer " + config.token,
+      "X-GitHub-Api-Version": "2022-11-28"
+    };
+  }
 
   function create(options) {
     var config = readConfig(), timer, busy = false, started = false, applying = false;
     var lastSeen = JSON.stringify(options.getState());
     function status(kind, text) { if (options.onStatus) options.onStatus(kind, text); }
     function save() { if (config) writeConfig(config); }
-    function headers() {
-      return {
-        Accept: "application/vnd.github+json",
-        Authorization: "Bearer " + config.token,
-        "X-GitHub-Api-Version": "2022-11-28"
-      };
-    }
     async function request(method, body) {
       var url = apiUrl(config) + (method === "GET" ? "?ref=" + encodeURIComponent(config.branch) : "");
       var response = await root.fetch(url, {
         method: method,
-        headers: Object.assign(headers(), body ? { "Content-Type": "application/json" } : {}),
+        headers: Object.assign(authHeaders(config), body ? { "Content-Type": "application/json" } : {}),
         body: body ? JSON.stringify(body) : undefined,
         cache: "no-store"
       });
@@ -133,6 +133,20 @@
       if (!config) return Promise.resolve("unconfigured");
       return config.dirty ? push(false) : pull(false, false);
     }
+    async function listFiles(settings) {
+      var target = {
+        repo: (settings.repo || "").trim(), branch: (settings.branch || "main").trim(),
+        token: (settings.token || "").trim(), path: "songbooks/list.json"
+      };
+      validate(target);
+      var response = await root.fetch("https://api.github.com/repos/" + target.repo + "/git/trees/" +
+        encodeURIComponent(target.branch) + "?recursive=1", { headers: authHeaders(target), cache: "no-store" });
+      var data = await response.json().catch(function () { return {}; });
+      if (!response.ok) throw new Error(data.message || "Could not list GitHub songbooks");
+      return (data.tree || []).filter(function (item) {
+        return item.type === "blob" && /\.json$/i.test(item.path);
+      }).map(function (item) { return item.path; }).sort();
+    }
     function configure(next) {
       next = {
         repo: (next.repo || "").trim(), branch: (next.branch || "main").trim(),
@@ -155,7 +169,7 @@
     return {
       config: function () { return config ? Object.assign({}, config) : null; },
       configured: function () { return !!config; }, configure: configure, disconnect: disconnect,
-      changed: changed, syncNow: syncNow, pull: pull, push: push, start: start
+      changed: changed, syncNow: syncNow, pull: pull, push: push, listFiles: listFiles, start: start
     };
   }
 

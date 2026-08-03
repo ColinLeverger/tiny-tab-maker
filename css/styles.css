@@ -260,6 +260,10 @@ pre.tab{font-family:var(--mono);font-size:calc(var(--fs,12pt) * 0.7);line-height
 .sync-state{padding:.45rem .6rem;border-radius:7px;background:#f0f2f5;color:var(--muted);font-size:.82rem}
 .sync-state.ok{background:#edf7ef;color:var(--ok)}
 .sync-state.warn{background:#fdecec;color:#b3261e}
+.sync-library{margin:.7rem 0;padding:.6rem;border:1px solid var(--line);border-radius:8px;background:#fafbfc}
+.sync-library>label{display:block;margin-bottom:.25rem;font-size:.75rem;color:var(--muted)}
+.sync-picker{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:.4rem;margin-bottom:.45rem}
+.sync-picker select{min-width:0;padding:.45rem;border:1px solid var(--line2);border-radius:7px;background:#fff}
 .sync-actions{flex-wrap:wrap}
 
 /* PDF page-count readout in the top bar */
@@ -544,7 +548,7 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
 @media(max-width:820px){
   input,select,textarea{font-size:16px}
   .topbar{flex-wrap:nowrap;padding-bottom:.45rem}
-  .topbar>.brand,.topbar>.spacer,.topbar>#undoBtn,.topbar>#setBtn,.topbar>#viewBtn{display:none}
+  .topbar>.brand,.topbar>.spacer,.topbar>#undoBtn,.topbar>#syncBtn,.topbar>#setBtn,.topbar>#viewBtn{display:none}
   .topbar>.scope-sel{flex:1;max-width:none;min-width:0}
   .ed-head>#reviewBtn{display:none}
   .mobile-dock{display:flex;position:fixed;z-index:45;left:0;right:0;bottom:0;
@@ -582,6 +586,8 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
   #mobileMoreContent .pagecount,#mobileMoreContent .savestat{color:var(--muted)}
   .sync-grid{grid-template-columns:1fr}
   .sync-grid label{grid-column:auto!important}
+  .sync-picker{grid-template-columns:minmax(0,1fr) auto}
+  .sync-picker #syncLoad{grid-column:1/-1}
   body.stage .mobile-dock{display:none}
   body.stage .layout{padding-bottom:0}
   .chord-pad-open{display:inline-flex;align-items:center;justify-content:center}

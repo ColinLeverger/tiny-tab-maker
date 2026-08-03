@@ -24,5 +24,15 @@ require("../js/github-sync.js");
   await sync.pull(true, false);
   assert.deepStrictEqual(applied, state);
   assert.strictEqual(sync.config().sha, "cloud-sha");
+  global.fetch = async function (url) {
+    assert.match(url, /\/git\/trees\/main\?recursive=1$/);
+    return { status: 200, ok: true, json: async () => ({ tree: [
+      { type: "blob", path: "songbook.json" },
+      { type: "blob", path: "songbooks/gig-book.json" },
+      { type: "blob", path: "README.md" }
+    ] }) };
+  };
+  assert.deepStrictEqual(await sync.listFiles({ repo: "owner/private-data", branch: "main", token: "token" }),
+    ["songbook.json", "songbooks/gig-book.json"]);
   console.log("github-sync: ok");
 })().catch(error => { console.error(error); process.exitCode = 1; });
