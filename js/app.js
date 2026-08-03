@@ -68,7 +68,11 @@
   function commitPending() {
     if (pendingSnap && !pendingCommitted) { history.push(pendingSnap); pendingCommitted = true; updateUndoBtn(); }
   }
-  function updateUndoBtn() { var b = $("#undoBtn"); if (b) b.disabled = history.length === 0; }
+  function updateUndoBtn() {
+    var disabled = history.length === 0, b = $("#undoBtn"), mb = $('.mobile-dock [data-mobile="undo"]');
+    if (b) b.disabled = disabled;
+    if (mb) mb.disabled = disabled;
+  }
   function undo() {
     commitPending();                 // fold an in-progress field edit into history
     if (!history.length) return;
@@ -274,6 +278,8 @@
     if (rb) {
       var rn = reviewCount();
       rb.textContent = "🖍 Review notes" + (rn ? " (" + rn + ")" : "");
+      var mrb = $('.mobile-dock [data-mobile="review"]');
+      if (mrb) { mrb.lastChild.nodeValue = "Review" + (rn ? " (" + rn + ")" : ""); mrb.disabled = !rn; }
       rb.disabled = !rn;
     }
     var host = $("#editor-list");
@@ -2359,6 +2365,54 @@
       else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") { e.preventDefault(); stageGo(stageIdx - 1); }
     }
   });
+
+  /* ---------------- phone toolbar ---------------- */
+  (function () {
+    var dock = $(".mobile-dock"), modal = $("#mobileMoreModal"), content = $("#mobileMoreContent");
+    if (!dock || !modal || !content) return;
+    var mq = root.matchMedia("(max-width:820px)");
+    var nodes = [
+      $("#chordPt").closest(".field"), $("#compactToggle").closest(".field"),
+      $("#autoNumToggle").closest(".field"), $("#bwToggle").closest(".field"),
+      $("#pageCount"), $("#saveStatus"), $("#tapLink"),
+      $("#genBtn").closest(".menu"), $("#dataBtn").closest(".menu")
+    ];
+    var homes = nodes.map(function (node) {
+      var marker = document.createComment("mobile-more-home");
+      node.parentNode.insertBefore(marker, node);
+      return marker;
+    });
+    function arrange() {
+      nodes.forEach(function (node, i) {
+        if (mq.matches) content.appendChild(node);
+        else homes[i].parentNode.insertBefore(node, homes[i].nextSibling);
+      });
+      if (!mq.matches) close();
+    }
+    function open() {
+      modal.classList.add("open");
+      dock.querySelector('[data-mobile="more"]').setAttribute("aria-expanded", "true");
+    }
+    function close() {
+      modal.classList.remove("open");
+      dock.querySelector('[data-mobile="more"]').setAttribute("aria-expanded", "false");
+    }
+    var targets = {
+      undo: "#undoBtn", sets: "#setBtn", review: "#reviewBtn", view: "#viewBtn",
+      update: '#dataMenu [data-act="update"]'
+    };
+    dock.addEventListener("click", function (e) {
+      var button = e.target.closest("[data-mobile]"); if (!button || button.disabled) return;
+      var action = button.dataset.mobile;
+      if (action === "more") { open(); return; }
+      close();
+      var target = $(targets[action]); if (target) target.click();
+    });
+    $("#mobileMoreClose").addEventListener("click", close);
+    modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+    if (mq.addEventListener) mq.addEventListener("change", arrange); else mq.addListener(arrange);
+    arrange();
+  })();
 
   /* ---------------- boot ---------------- */
   // reflect the restored view prefs onto the controls BEFORE first render, so the

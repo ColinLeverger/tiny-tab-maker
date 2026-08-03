@@ -64,6 +64,22 @@
   <input type="file" id="fileInput" accept="application/json,.json" hidden>
 </header>
 
+<nav class="mobile-dock" aria-label="Editor actions">
+  <button type="button" data-mobile="undo" disabled><span>↶</span>Undo</button>
+  <button type="button" data-mobile="sets"><span>☰</span>Sets</button>
+  <button type="button" data-mobile="review"><span>🖍</span>Review</button>
+  <button type="button" data-mobile="view"><span>📖</span>View</button>
+  <button type="button" data-mobile="update"><span>⟳</span>Update</button>
+  <button type="button" data-mobile="more" aria-expanded="false"><span>•••</span>More</button>
+</nav>
+
+<div class="modal-bg bs-bg" id="mobileMoreModal">
+  <div class="bsheet mobile-more-sheet">
+    <div class="bs-head"><h3>More</h3><button class="btn sm" id="mobileMoreClose">✕</button></div>
+    <div id="mobileMoreContent"></div>
+  </div>
+</div>
+
 <div class="layout">
   <!-- ===== EDITOR ===== -->
   <aside class="editor">
