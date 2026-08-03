@@ -13,6 +13,9 @@ require("../js/github-sync.js");
   const unicode = "Couplet: F♯ → B♭";
   assert.strictEqual(TTMGitHubSync.decode(TTMGitHubSync.encode(unicode)), unicode);
   assert.throws(() => TTMGitHubSync.validate({ repo: "bad", branch: "main", path: "songbook.json", token: "x" }));
+  const transfer = { repo: "owner/private-data", branch: "main", token: "github_pat_secret" };
+  assert.deepStrictEqual(TTMGitHubSync.readTransferCode(TTMGitHubSync.transferCode(transfer)), transfer);
+  assert.throws(() => TTMGitHubSync.readTransferCode("not-a-code"));
 
   let state = { meta: {}, songs: [] }, applied;
   global.fetch = async function (_url, options) {

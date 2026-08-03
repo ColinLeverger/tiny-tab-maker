@@ -1252,18 +1252,35 @@
     if (gitSync && gitSync.configured()) gitSync.syncNow().catch(function () {});
     else openSyncSettings();
   }
-  function openSyncSettings() {
+  var syncQrTimer;
+  function drawSyncQr() {
+    var host = $("#syncQr"); if (!host) return;
+    host.innerHTML = "";
+    if (root.matchMedia && root.matchMedia("(max-width:820px)").matches) return;
+    if (!root.QRCode) { host.textContent = "QR generator unavailable"; return; }
+    try {
+      var code = root.TTMGitHubSync.transferCode(syncForm());
+      new root.QRCode(host, {
+        text: location.origin + location.pathname + "#sync=" + code,
+        width: 148, height: 148, correctLevel: root.QRCode.CorrectLevel.L
+      });
+      host.removeAttribute("title");
+    } catch (_) { host.textContent = "Enter the repository and token to create the QR code"; }
+  }
+  function openSyncSettings(transferred) {
     if (!gitSync) { alert("GitHub sync is unavailable — update the app and try again."); return; }
-    var config = gitSync.config() || {};
+    transferred = transferred && transferred.repo ? transferred : null;
+    var config = transferred || gitSync.config() || {};
     $("#syncRepo").value = config.repo || "";
     $("#syncBranch").value = config.branch || "main";
     $("#syncPath").value = config.path || suggestedSyncPath();
     $("#syncToken").value = config.token || "";
-    $("#syncRename").disabled = !gitSync.configured();
+    $("#syncRename").disabled = !!transferred || !gitSync.configured();
     $("#syncRemote").innerHTML = '<option value="">Refresh to list songbooks…</option>';
     $("#syncLoad").disabled = true;
     if ($("#mobileMoreModal").classList.contains("open")) $("#mobileMoreClose").click();
     $("#syncModal").classList.add("open");
+    drawSyncQr();
     if (config.repo && config.token) refreshSyncFiles().catch(function () {});
   }
   function closeSyncSettings() { $("#syncModal").classList.remove("open"); }
@@ -1289,6 +1306,11 @@
     }).finally(function () { button.disabled = false; });
   }
   $("#syncBtn").addEventListener("click", openSyncSettings);
+  ["syncRepo", "syncBranch", "syncToken"].forEach(function (id) {
+    $("#" + id).addEventListener("input", function () {
+      clearTimeout(syncQrTimer); syncQrTimer = setTimeout(drawSyncQr, 200);
+    });
+  });
   $("#syncClose").addEventListener("click", closeSyncSettings);
   $("#syncModal").addEventListener("click", function (e) { if (e.target === $("#syncModal")) closeSyncSettings(); });
   $("#syncDisconnect").addEventListener("click", function () {
@@ -2479,11 +2501,15 @@
   $("#setShare").addEventListener("click", function () { copyShare(stageSongIndex()); });
 
   // boot import: #d= data (+ optional #s= song to open in stage view)
-  var PENDING_STAGE_SONG = null;
+  var PENDING_STAGE_SONG = null, PENDING_SYNC = null;
   (function () {
     var h = location.hash || "";
-    var dm = h.match(/[#&]d=([^&]+)/), sm = h.match(/[#&]s=(\d+)/);
+    var dm = h.match(/[#&]d=([^&]+)/), sm = h.match(/[#&]s=(\d+)/), qm = h.match(/[#&]sync=([^&]+)/);
     if (sm) PENDING_STAGE_SONG = +sm[1];
+    if (qm) {
+      try { PENDING_SYNC = root.TTMGitHubSync.readTransferCode(qm[1]); }
+      catch (err) { alert("Couldn't read the GitHub sync QR code: " + err.message); }
+    }
     if (dm) {
       if (typeof LZString === "undefined") {
         alert("This link carries songbook data but the lz-string library didn't load (offline?).");
@@ -2501,7 +2527,7 @@
       }
     }
     // NB: root.history — the plain `history` name is shadowed by the undo array
-    if (dm || sm) { try { root.history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
+    if (dm || sm || qm) { try { root.history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
   })();
 
   // keyboard: Esc closes modal / leaves View; arrows flip songs in View mode
@@ -2601,6 +2627,7 @@
   updateUndoBtn();
   renderAll();
   if (gitSync) gitSync.start(); else syncStatus("error", "Sync module unavailable");
+  if (PENDING_SYNC) { openSyncSettings(PENDING_SYNC); PENDING_SYNC = null; }
   if (!STORAGE_OK) setStatus("⚠︎ browser storage unavailable — use Export", true);
   else if (RESTORED) setStatus("✓ Restored from browser");
   memoSweep();     // vanish memos past their TTL (and those of deleted songs)

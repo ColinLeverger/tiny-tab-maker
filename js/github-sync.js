@@ -37,6 +37,21 @@
       "X-GitHub-Api-Version": "2022-11-28"
     };
   }
+  function transferCode(config) {
+    var shared = {
+      repo: (config.repo || "").trim(), branch: (config.branch || "main").trim(),
+      token: (config.token || "").trim(), path: "songbook.json"
+    };
+    validate(shared); delete shared.path;
+    return encode(JSON.stringify(shared)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function readTransferCode(code) {
+    code = (code || "").replace(/-/g, "+").replace(/_/g, "/");
+    while (code.length % 4) code += "=";
+    var shared = JSON.parse(decode(code));
+    validate(Object.assign({}, shared, { path: "songbook.json" }));
+    return { repo: shared.repo.trim(), branch: shared.branch.trim(), token: shared.token.trim() };
+  }
 
   function create(options) {
     var config = readConfig(), timer, busy = false, started = false, applying = false;
@@ -197,5 +212,8 @@
     };
   }
 
-  root.TTMGitHubSync = { create: create, encode: encode, decode: decode, validate: validate };
+  root.TTMGitHubSync = {
+    create: create, encode: encode, decode: decode, validate: validate,
+    transferCode: transferCode, readTransferCode: readTransferCode
+  };
 })(typeof window !== "undefined" ? window : globalThis);

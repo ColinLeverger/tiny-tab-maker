@@ -257,6 +257,9 @@ pre.tab{font-family:var(--mono);font-size:calc(var(--fs,12pt) * 0.7);line-height
 .sync-grid label{font-size:.75rem;color:var(--muted)}
 .sync-grid label:first-child,.sync-grid label:last-child{grid-column:1/-1}
 .sync-grid input{display:block;width:100%;margin-top:.18rem;padding:.5rem;border:1px solid var(--line2);border-radius:7px}
+.sync-transfer{display:flex;align-items:center;gap:.75rem;margin:.7rem 0;padding:.6rem;border:1px solid var(--line);border-radius:8px;font-size:.78rem;line-height:1.4}
+.sync-transfer small{color:#b3261e}.sync-transfer #syncQr{flex:0 0 148px;min-height:148px;display:grid;place-items:center;color:var(--muted);text-align:center}
+.sync-transfer #syncQr img,.sync-transfer #syncQr canvas{width:148px!important;height:148px!important}
 .sync-state{padding:.45rem .6rem;border-radius:7px;background:#f0f2f5;color:var(--muted);font-size:.82rem}
 .sync-state.ok{background:#edf7ef;color:var(--ok)}
 .sync-state.warn{background:#fdecec;color:#b3261e}
@@ -586,6 +589,7 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
   #mobileMoreContent .pagecount,#mobileMoreContent .savestat{color:var(--muted)}
   .sync-grid{grid-template-columns:1fr}
   .sync-grid label{grid-column:auto!important}
+  .sync-transfer{display:none}
   .sync-picker{grid-template-columns:minmax(0,1fr) auto}
   .sync-picker #syncLoad{grid-column:1/-1}
   body.stage .mobile-dock{display:none}
