@@ -133,9 +133,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .chord-value{display:flex;align-items:center;gap:.25rem;min-width:0}
 .chord-value input{flex:1}
 .chord-pad-open{display:none;min-width:44px;min-height:40px;padding:.25rem}
-.riff-row{display:grid;grid-template-columns:1fr auto auto auto;gap:.35rem;align-items:center;
+.riff-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:.35rem;align-items:center;min-width:0;
   border:1px solid var(--line);border-radius:7px;padding:.4rem;margin-bottom:.35rem;background:#fafbfc}
-.riff-row .rl{font-weight:600}
+.riff-row .rl{width:100%;min-width:0;font-weight:600}
 .riff-row .badge{font-size:.72rem;color:#fff;background:var(--ok);border-radius:10px;padding:.1rem .4rem}
 .riff-row .badge.empty{background:var(--muted)}
 .riff-row .rnote{grid-column:1/-1;width:100%;min-width:0;min-height:2.8rem;margin-top:.3rem;padding:.3rem .45rem;
