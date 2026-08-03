@@ -470,9 +470,9 @@
   function cpDraw() {
     if (!CP) return;
     $("#cpPreview").textContent = CP.root + CP.acc + CP.suffix;
-    var value = CP.input.value, start = Math.max(0, CP.at - 50), end = Math.min(value.length, CP.at + 70);
-    $("#cpBefore").textContent = (start ? "…" : "") + value.slice(start, CP.at);
-    $("#cpAfter").textContent = value.slice(CP.at, end) + (end < value.length ? "…" : "");
+    var edit = $("#cpText");
+    edit.value = CP.input.value;
+    edit.setSelectionRange(CP.at, CP.at);
     $$("#chordPadModal [data-cp-root]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-root") === CP.root); });
     $$("#chordPadModal [data-cp-acc]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-acc") === CP.acc); });
     $$("#chordPadModal [data-cp-suffix]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-suffix") === CP.suffix); });
@@ -487,8 +487,10 @@
   function cpInsert(text) {
     if (!CP) return;
     if (!CP.changed) { pendingSnap = clone(STATE); pendingCommitted = false; CP.changed = true; }
-    var input = CP.input, at = CP.at;
-    input.value = input.value.slice(0, at) + text + input.value.slice(at);
+    var input = CP.input, edit = $("#cpText");
+    var at = edit.selectionStart == null ? CP.at : edit.selectionStart;
+    var end = edit.selectionEnd == null ? at : edit.selectionEnd;
+    input.value = input.value.slice(0, at) + text + input.value.slice(end);
     CP.at += text.length;
     input.setSelectionRange(CP.at, CP.at);
     input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -506,12 +508,19 @@
   });
   $("#cpInsert").addEventListener("click", function () { if (CP) cpInsert(CP.root + CP.acc + CP.suffix); });
   $("#cpClose").addEventListener("click", closeChordPad);
+  $("#cpText").addEventListener("input", function () {
+    if (!CP) return;
+    if (!CP.changed) { pendingSnap = clone(STATE); pendingCommitted = false; CP.changed = true; }
+    CP.input.value = this.value;
+    CP.at = this.selectionStart == null ? this.value.length : this.selectionStart;
+    CP.input.setSelectionRange(CP.at, CP.at);
+    CP.input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
   $("#cpKeyboard").addEventListener("click", function () {
     if (!CP) return;
-    var input = CP.input, at = CP.at; closeChordPad();
-    try { input.focus({ preventScroll: true }); } catch (_) { input.focus(); }
-    input.setSelectionRange(at, at);
-    setTimeout(function () { input.scrollIntoView({ block: "center", behavior: "auto" }); }, 350);
+    var edit = $("#cpText");
+    try { edit.focus({ preventScroll: true }); } catch (_) { edit.focus(); }
+    edit.setSelectionRange(CP.at, CP.at);
   });
 
   /* =====================================================================
