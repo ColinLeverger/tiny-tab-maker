@@ -486,23 +486,17 @@
     $$("#chordPadModal [data-cp-acc]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-acc") === CP.acc); });
     $$("#chordPadModal [data-cp-suffix]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-suffix") === CP.suffix); });
   }
-  function sizeChordPad() {
-    var pad = $("#chordPadModal"), view = root.visualViewport;
-    if (!CP || !view) { pad.style.top = pad.style.height = pad.style.bottom = ""; return; }
-    pad.style.top = view.offsetTop + "px"; pad.style.height = view.height + "px"; pad.style.bottom = "auto";
-  }
   function openChordPad(input) {
     if (!input) return;
     var at = lastChordField === input && input.selectionStart != null ? input.selectionStart : input.value.length;
     CP = { input: input, at: at, root: "C", acc: "", suffix: "", changed: false };
     input.blur(); cpDraw(); $("#chordPadModal").classList.add("open");
     document.documentElement.classList.add("cp-open"); document.body.classList.add("cp-open");
-    sizeChordPad();
   }
   function closeChordPad() {
     $("#chordPadModal").classList.remove("open");
     document.documentElement.classList.remove("cp-open"); document.body.classList.remove("cp-open");
-    CP = null; sizeChordPad();
+    CP = null;
   }
   function focusChordText() {
     if (!CP) return;
@@ -544,10 +538,6 @@
   });
   $("#cpText").addEventListener("blur", function () { if (CP) { CP.at = this.selectionStart; cpDraw(); } });
   $("#cpKeyboard").addEventListener("click", focusChordText);
-  if (root.visualViewport) {
-    root.visualViewport.addEventListener("resize", sizeChordPad);
-    root.visualViewport.addEventListener("scroll", sizeChordPad);
-  }
 
   /* =====================================================================
    *  TAP TEMPO PAD — the 🥁 next to a Tempo field opens a BIG fixed pad

@@ -384,9 +384,10 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
 .bs-actions .btn{min-height:42px;padding:.5rem 1.1rem}
 .chord-pad .bs-chips{margin-bottom:.45rem}
 .chord-pad{overscroll-behavior:contain}
+#chordPadModal{bottom:-1px} /* cover iOS's sub-pixel seam at the viewport edge */
 .chord-pad .chip small{display:block;color:var(--muted);font-size:.65rem}
 .chord-pad .chip.on small{color:inherit}
-.cp-context{position:absolute;z-index:72;top:calc(10px + env(safe-area-inset-top,0px));left:12px;right:12px;
+.cp-context{position:fixed;z-index:72;top:calc(10px + env(safe-area-inset-top,0px));left:12px;right:12px;
   max-width:536px;margin:auto;padding:.5rem .65rem;border:1px solid var(--line2);border-radius:10px;
   background:#fff;box-shadow:0 4px 18px rgba(0,0,0,.25)}
 .cp-context label{display:block;margin-bottom:.15rem;color:var(--muted);font-size:.65rem;text-transform:uppercase}
@@ -401,7 +402,6 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
 #cpPreview{flex:1;padding:.55rem .7rem;border-radius:9px;background:#f0f2f5;font:700 1.2rem var(--mono)}
 #cpInsert{min-height:44px}
 .cp-tools .chip{flex:1}
-#chordPadModal .bsheet{max-height:82%}
 
 /* setlist rows: big touch targets, tap row = jump, ▲▼ = reorder */
 .set-row{display:flex;align-items:center;gap:.55rem;min-height:48px;padding:.3rem .25rem;
