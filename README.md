@@ -185,7 +185,9 @@ One repository can contain any number of JSON songbooks. On laptops, the
 always-visible **Songbooks** button opens this library directly. **List** discovers
 both older root files such as `songbook.json` and newer files under
 `songbooks/`. **Choose a new songbook filename** prepares a separate path;
-**Push this device** creates it without touching the other books.
+**Push this device** creates it without touching the other books. **Rename current
+GitHub songbook** safely changes the current remote filename without overwriting
+another songbook.
 
 Local edits save immediately and sync after 30 seconds of inactivity. The app
 also checks GitHub on startup, focus, reconnect, or *Data → Sync now*. GitHub's

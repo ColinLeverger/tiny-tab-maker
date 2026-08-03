@@ -1259,6 +1259,7 @@
     $("#syncBranch").value = config.branch || "main";
     $("#syncPath").value = config.path || suggestedSyncPath();
     $("#syncToken").value = config.token || "";
+    $("#syncRename").disabled = !gitSync.configured();
     $("#syncRemote").innerHTML = '<option value="">Refresh to list songbooks…</option>';
     $("#syncLoad").disabled = true;
     if ($("#mobileMoreModal").classList.contains("open")) $("#mobileMoreClose").click();
@@ -1308,6 +1309,18 @@
     if (!name) return;
     $("#syncPath").value = suggestedSyncPath(name);
     $("#syncRemote").value = ""; $("#syncLoad").disabled = true;
+  });
+  $("#syncRename").addEventListener("click", function () {
+    var config = gitSync && gitSync.config(); if (!config) return;
+    var currentName = config.path.split("/").pop().replace(/\.json$/i, "");
+    var name = prompt("New name for the current GitHub songbook:", currentName); if (!name) return;
+    var newPath = suggestedSyncPath(name); if (newPath === config.path) return;
+    if (!confirm('Rename "' + config.path + '" to "' + newPath + '" on GitHub?')) return;
+    var button = this; button.disabled = true;
+    gitSync.rename(newPath).then(function () {
+      $("#syncPath").value = newPath;
+      return refreshSyncFiles();
+    }).catch(function (error) { syncStatus("error", error.message); }).finally(function () { button.disabled = false; });
   });
   $("#syncPull").addEventListener("click", function () {
     if (!confirm("Save these settings and load the GitHub songbook if it exists?\n\nYour current version remains available through Undo.")) return;

@@ -34,5 +34,30 @@ require("../js/github-sync.js");
   };
   assert.deepStrictEqual(await sync.listFiles({ repo: "owner/private-data", branch: "main", token: "token" }),
     ["songbook.json", "songbooks/gig-book.json"]);
+
+  const calls = [];
+  global.fetch = async function (url, options) {
+    calls.push({ url, method: options.method, body: options.body && JSON.parse(options.body) });
+    if (options.method === "GET" && url.includes("songbooks%2Frenamed")) throw new Error("path should use slash-separated URL segments");
+    if (options.method === "GET" && url.includes("/songbooks/renamed.json")) return { status: 404, ok: false };
+    if (options.method === "GET") return { status: 200, ok: true, json: async () => ({ sha: "old-sha", content: TTMGitHubSync.encode(JSON.stringify(state)) }) };
+    if (options.method === "PUT") return { status: 200, ok: true, json: async () => ({ content: { sha: "new-sha" } }) };
+    return { status: 200, ok: true, json: async () => ({}) };
+  };
+  await sync.rename("songbooks/renamed.json");
+  assert.deepStrictEqual(calls.map(call => call.method), ["GET", "GET", "PUT", "DELETE"]);
+  assert.match(calls[2].url, /\/contents\/songbooks\/renamed\.json$/);
+  assert.match(calls[3].url, /\/contents\/songbook\.json$/);
+  assert.strictEqual(calls[3].body.sha, "old-sha");
+  assert.strictEqual(sync.config().path, "songbooks/renamed.json");
+  assert.strictEqual(sync.config().sha, "new-sha");
+
+  const existingCalls = [];
+  global.fetch = async function (url, options) {
+    existingCalls.push(options.method);
+    return { status: 200, ok: true, json: async () => ({ sha: "existing-sha", content: TTMGitHubSync.encode(JSON.stringify(state)) }) };
+  };
+  await assert.rejects(sync.rename("songbooks/existing.json"), /already exists/);
+  assert.deepStrictEqual(existingCalls, ["GET", "GET"]);
   console.log("github-sync: ok");
 })().catch(error => { console.error(error); process.exitCode = 1; });

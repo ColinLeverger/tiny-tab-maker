@@ -26,8 +26,8 @@
     for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     return new TextDecoder().decode(bytes);
   }
-  function apiUrl(config) {
-    var parts = config.path.split("/").map(encodeURIComponent).join("/");
+  function apiUrl(config, path) {
+    var parts = (path || config.path).split("/").map(encodeURIComponent).join("/");
     return "https://api.github.com/repos/" + config.repo + "/contents/" + parts;
   }
   function authHeaders(config) {
@@ -43,8 +43,8 @@
     var lastSeen = JSON.stringify(options.getState());
     function status(kind, text) { if (options.onStatus) options.onStatus(kind, text); }
     function save() { if (config) writeConfig(config); }
-    async function request(method, body) {
-      var url = apiUrl(config) + (method === "GET" ? "?ref=" + encodeURIComponent(config.branch) : "");
+    async function request(method, body, path) {
+      var url = apiUrl(config, path) + (method === "GET" ? "?ref=" + encodeURIComponent(config.branch) : "");
       var response = await root.fetch(url, {
         method: method,
         headers: Object.assign(authHeaders(config), body ? { "Content-Type": "application/json" } : {}),
@@ -147,6 +147,30 @@
         return item.type === "blob" && /\.json$/i.test(item.path);
       }).map(function (item) { return item.path; }).sort();
     }
+    async function rename(newPath) {
+      if (!config) throw new Error("Configure GitHub sync first.");
+      newPath = (newPath || "").trim();
+      validate(Object.assign({}, config, { path: newPath }));
+      if (newPath === config.path) return;
+      if (busy) throw new Error("Wait for the current GitHub sync to finish, then rename again.");
+      if (config.dirty) await push(false);
+      busy = true; status("syncing", "Renaming GitHub songbook…");
+      try {
+        var oldPath = config.path, oldFile = await request("GET");
+        if (!oldFile) throw new Error("The current GitHub songbook no longer exists.");
+        if (await request("GET", null, newPath)) throw new Error("A GitHub songbook already exists at " + newPath + ".");
+        var created = await request("PUT", {
+          message: "Rename Tiny Tab Maker songbook", content: oldFile.content, branch: config.branch
+        }, newPath);
+        await request("DELETE", {
+          message: "Remove renamed Tiny Tab Maker songbook", sha: oldFile.sha, branch: config.branch
+        }, oldPath);
+        config.path = newPath; config.sha = created.content.sha; save();
+        status(config.dirty ? "dirty" : "ok", config.dirty ? "Renamed — waiting to sync edits" : "GitHub songbook renamed");
+        if (config.dirty) schedule();
+      } catch (error) { return fail(error); }
+      finally { busy = false; }
+    }
     function configure(next) {
       next = {
         repo: (next.repo || "").trim(), branch: (next.branch || "main").trim(),
@@ -169,7 +193,7 @@
     return {
       config: function () { return config ? Object.assign({}, config) : null; },
       configured: function () { return !!config; }, configure: configure, disconnect: disconnect,
-      changed: changed, syncNow: syncNow, pull: pull, push: push, listFiles: listFiles, start: start
+      changed: changed, syncNow: syncNow, pull: pull, push: push, listFiles: listFiles, rename: rename, start: start
     };
   }
 
