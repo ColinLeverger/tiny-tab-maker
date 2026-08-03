@@ -18,6 +18,7 @@ var SHELL = [
   "js/demo-data.js",
   "js/render.js",
   "js/pdf.js",
+  "js/github-sync.js",
   "js/app.js",
   "manifest.webmanifest",
   "icons/icon-192.png",
@@ -45,7 +46,14 @@ self.addEventListener("activate", function (e) {
 // cache-first with background refresh; stash anything new we fetch
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET") return;
-  if (new URL(e.request.url).pathname.endsWith("/version.json")) {
+  var url = new URL(e.request.url);
+  // Private sync must always reach GitHub: never cache authenticated responses
+  // or satisfy a cloud read with an old cached document.
+  if (url.hostname === "api.github.com" || e.request.headers.has("Authorization")) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+  if (url.pathname.endsWith("/version.json")) {
     e.respondWith(fetch(e.request));
     return;
   }

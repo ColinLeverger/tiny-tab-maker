@@ -1,7 +1,7 @@
 /* =====================================================================
  * app.js — UI state, editor, fret-grid tab editor, persistence.
- * Pure vanilla JS. State autosaves to localStorage; real data never
- * leaves the browser. Import/Export JSON to move data between machines.
+ * Pure vanilla JS. State autosaves to localStorage; optional GitHub sync and
+ * Import/Export JSON move data between machines.
  * ===================================================================== */
 (function (root) {
   "use strict";
@@ -96,6 +96,7 @@
   var saveT;
   function persist() {
     clearTimeout(saveT);
+    if (root.TTMSync) root.TTMSync.changed();
     saveT = setTimeout(function () {
       if (!STORAGE_OK) { setStatus("⚠︎ browser storage unavailable", true); return; }
       try { localStorage.setItem(LS_KEY, JSON.stringify(STATE)); setStatus("✓ Saved in browser"); }
@@ -1162,14 +1163,17 @@
     else if (a === "digest") { openDigest(); }
   });
 
+  var gitSync;
   $("#dataMenu").addEventListener("click", function (e) {
-    var a = e.target.getAttribute("data-act"); if (!a) return;
+    var action = e.target.closest("[data-act]"), a = action && action.getAttribute("data-act"); if (!a) return;
     if (a === "export") {
       var blob = new Blob([JSON.stringify(STATE, null, 2)], { type: "application/json" });
       var url = URL.createObjectURL(blob), link = document.createElement("a");
       link.href = url; link.download = "songbook-data.json"; link.click();
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     } else if (a === "share") { copyShare(null); }
+    else if (a === "sync") { if (gitSync && gitSync.configured()) gitSync.syncNow().catch(function () {}); else openSyncSettings(); }
+    else if (a === "sync-settings") { openSyncSettings(); }
     else if (a === "update") { checkUpdate(); }
     else if (a === "export-memos") { exportWithMemos(); }
     else if (a === "import") { $("#fileInput").click(); }
@@ -1205,6 +1209,65 @@
       else { root.setMobileUpdateState("checking"); setStatus("✓ Updated — reloading…"); }
     }).catch(function () { root.setMobileUpdateState("stale"); setStatus("⚠︎ update check failed (offline?)", true); });
   }
+
+  /* ---------------- GitHub repository sync ---------------- */
+  function syncStatus(kind, text) {
+    var badge = $("#syncBadge"), state = $("#syncState"), more = $('.mobile-dock [data-mobile="more"]');
+    var labels = { off: "Off", dirty: "Unsaved", syncing: "Syncing…", ok: "Ready", conflict: "Conflict", error: "Error" };
+    if (badge) {
+      badge.textContent = labels[kind] || kind;
+      badge.classList.toggle("latest", kind === "ok");
+      badge.classList.toggle("stale", kind === "conflict" || kind === "error");
+      badge.title = text || "";
+    }
+    if (state) {
+      state.textContent = text || labels[kind] || "";
+      state.classList.toggle("ok", kind === "ok");
+      state.classList.toggle("warn", kind === "conflict" || kind === "error");
+    }
+    if (more) {
+      more.classList.remove("sync-ok", "sync-pending", "sync-warn");
+      if (kind === "ok") more.classList.add("sync-ok");
+      else if (kind === "dirty" || kind === "syncing") more.classList.add("sync-pending");
+      else if (kind === "conflict" || kind === "error") more.classList.add("sync-warn");
+      more.title = text || "";
+    }
+    if (kind === "conflict" || kind === "error") setStatus("⚠︎ " + text, true);
+    else if (kind === "ok") setStatus("☁ " + text);
+  }
+  function openSyncSettings() {
+    if (!gitSync) { alert("GitHub sync is unavailable — update the app and try again."); return; }
+    var config = gitSync.config() || {};
+    $("#syncRepo").value = config.repo || "";
+    $("#syncBranch").value = config.branch || "main";
+    $("#syncPath").value = config.path || "songbook.json";
+    $("#syncToken").value = config.token || "";
+    if ($("#mobileMoreModal").classList.contains("open")) $("#mobileMoreClose").click();
+    $("#syncModal").classList.add("open");
+  }
+  function closeSyncSettings() { $("#syncModal").classList.remove("open"); }
+  function configureSync() {
+    gitSync.configure({
+      repo: $("#syncRepo").value, branch: $("#syncBranch").value,
+      path: $("#syncPath").value, token: $("#syncToken").value
+    });
+  }
+  $("#syncClose").addEventListener("click", closeSyncSettings);
+  $("#syncModal").addEventListener("click", function (e) { if (e.target === $("#syncModal")) closeSyncSettings(); });
+  $("#syncDisconnect").addEventListener("click", function () {
+    if (!gitSync || !gitSync.configured() || !confirm("Disconnect this device from GitHub sync? Local data stays here.")) return;
+    gitSync.disconnect(); closeSyncSettings();
+  });
+  $("#syncPull").addEventListener("click", function () {
+    if (!confirm("Save these settings and load the GitHub songbook if it exists?\n\nYour current version remains available through Undo.")) return;
+    try { configureSync(); gitSync.pull(true, true).then(closeSyncSettings).catch(function () {}); }
+    catch (error) { syncStatus("error", error.message); }
+  });
+  $("#syncPush").addEventListener("click", function () {
+    if (!confirm("Push this device to GitHub?\n\nThis intentionally replaces the current cloud songbook.")) return;
+    try { configureSync(); gitSync.push(true).then(closeSyncSettings).catch(function () {}); }
+    catch (error) { syncStatus("error", error.message); }
+  });
 
   $("#fileInput").addEventListener("change", function () {
     var f = this.files[0]; if (!f) return;
@@ -2380,6 +2443,7 @@
   // keyboard: Esc closes modal / leaves View; arrows flip songs in View mode
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
+      if ($("#syncModal").classList.contains("open")) { closeSyncSettings(); return; }
       if ($("#mobileMoreModal").classList.contains("open")) { $("#mobileMoreClose").click(); return; }
       if ($("#tabZoom").classList.contains("open")) { closeTabZoom(); return; }
       if (CP) { closeChordPad(); return; }
@@ -2459,8 +2523,20 @@
   $("#bwToggle").checked = UI.bw;
   var ast = $("#allSetsToggle"); if (ast) ast.checked = UI.allSets;
   $("#autoNumToggle").checked = !!STATE.autoNumber;
+  if (root.TTMGitHubSync) {
+    gitSync = root.TTMGitHubSync.create({
+      getState: function () { return STATE; },
+      applyState: function (state) {
+        if (!state || !Array.isArray(state.songs)) throw new Error("Invalid cloud songbook");
+        pushHistory(); STATE = state; UI.openSong = null; renderAll();
+      },
+      onStatus: syncStatus
+    });
+    root.TTMSync = gitSync;
+  }
   updateUndoBtn();
   renderAll();
+  if (gitSync) gitSync.start(); else syncStatus("error", "Sync module unavailable");
   if (!STORAGE_OK) setStatus("⚠︎ browser storage unavailable — use Export", true);
   else if (RESTORED) setStatus("✓ Restored from browser");
   memoSweep();     // vanish memos past their TTL (and those of deleted songs)

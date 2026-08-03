@@ -167,6 +167,30 @@ scales the A4 page to fit one screen. On top of it:
   reaches the server. A link shared from View mode also carries `&s=<n>` so it
   opens straight on that song. Typical size: a 30-song book ≈ 8 KB of URL.
 
+## Optional GitHub sync (free, no server)
+
+The app remains local-first, but can sync its songbook through a separate
+private GitHub repository using the Contents API:
+
+1. Create a **private** repository and initialize it with a README.
+2. Create a fine-grained personal access token limited to that repository,
+   with **Repository permissions → Contents: Read and write** only.
+3. In the app open *Data → GitHub sync settings*, enter
+   `owner/repository`, the branch (normally `main`), `songbook.json`, and the
+   token.
+4. On the first device choose **Push this device**. On each additional device
+   choose **Save & pull**.
+
+Local edits save immediately and sync after 30 seconds of inactivity. The app
+also checks GitHub on startup, focus, reconnect, or *Data → Sync now*. GitHub's
+file SHA prevents silent overwrites: when two devices edit independently the
+badge shows **Conflict**, and sync settings let you explicitly Pull the cloud
+copy or Push this device. Pull is added to Undo history.
+
+The token stays in that browser's `localStorage`; it cannot be hidden by a
+static Pages app, so keep its access limited to the one private data repository.
+Voice memos remain device-local and are not included in GitHub sync.
+
 ## Deploy to GitHub Pages
 
 **Option A — Pages from a branch** (simplest)
@@ -185,8 +209,10 @@ included. Set *Settings → Pages → Source: GitHub Actions* and every push to
 
 ## Privacy
 
-- The app **autosaves** to `localStorage` (key `fg_fiches_state_v1`). Nothing
-  hits the network (jsPDF/autotable load from a CDN; everything else is local).
+- The app **autosaves** to `localStorage` (key `fg_fiches_state_v1`). Song data
+  only leaves the device when Share or optional GitHub sync is used.
+- CDN scripts are pinned with Subresource Integrity hashes before any optional
+  GitHub token is stored in the browser.
 - **Data → Export JSON** to back up / move; **Import JSON** to reload. It's
   *your* file — keep it **outside the repo**.
 - `.gitignore` already blocks `fiches-data*.json`, `songbook-data*.json`,
@@ -203,6 +229,7 @@ index.html          page shell + script loading
 tap.html            standalone tap-tempo + metronome page (no dependencies)
 css/styles.css      UI + preview "sheets" + A4 print rules
 js/data.js          pure logic: section classifier + ASCII tab renderer (Node-testable)
+js/github-sync.js   optional GitHub Contents API sync client
 js/demo-data.js     the fictional sample data
 js/render.js        HTML preview (= what the Print mode lays out)
 js/pdf.js           vector PDF generation (jsPDF + autotable)
@@ -272,6 +299,7 @@ Palette and priority live in `js/data.js` (`CATEGORIES` / `PRIORITY`).
 node -e "const FG=require('./js/data.js');
   console.log(FG.tabToText([['E',6],['E',8],['bar'],['A',5]]));
   console.log(FG.classify('Break solo').key);"
+node tests/github-sync.test.js
 ```
 
 ## License

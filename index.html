@@ -52,6 +52,8 @@
   <div class="menu">
     <button class="btn ghost" id="dataBtn">Data ▾</button>
     <div class="menu-pop" id="dataMenu">
+      <button data-act="sync">☁ Sync now <span id="syncBadge" class="app-version">Off</span></button>
+      <button data-act="sync-settings">⚙ GitHub sync settings…</button>
       <button data-act="import">📂 Import JSON…</button>
       <button data-act="export">💾 Export JSON</button>
       <button data-act="share">🔗 Copy share link (data in URL)</button>
@@ -292,6 +294,27 @@
   </div>
 </div>
 
+<!-- ===== GITHUB SYNC SETTINGS ===== -->
+<div class="modal-bg bs-bg" id="syncModal">
+  <div class="bsheet sync-sheet">
+    <div class="bs-head"><h3>☁ GitHub sync</h3><button class="btn sm" id="syncClose">✕</button></div>
+    <p class="sync-help">Use a private repository initialized with a README and a fine-grained token limited to that repository with <b>Contents: read/write</b>.</p>
+    <div class="sync-grid">
+      <label>Repository <input id="syncRepo" placeholder="owner/private-repository" autocomplete="off" autocapitalize="none"></label>
+      <label>Branch <input id="syncBranch" value="main" autocomplete="off" autocapitalize="none"></label>
+      <label>File <input id="syncPath" value="songbook.json" autocomplete="off" autocapitalize="none"></label>
+      <label>Fine-grained token <input id="syncToken" type="password" autocomplete="off" autocapitalize="none"></label>
+    </div>
+    <p class="sync-help"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">Create a fine-grained token on GitHub ↗</a>. It stays in this browser and should access only the data repository.</p>
+    <div id="syncState" class="sync-state">Sync off</div>
+    <div class="bs-actions sync-actions">
+      <button class="btn danger" id="syncDisconnect">Disconnect</button>
+      <button class="btn" id="syncPush">Push this device</button>
+      <button class="btn primary" id="syncPull">Save &amp; pull</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== PRACTICE DIGEST (all rehearsal marks & notes, one page) ===== -->
 <div class="modal-bg bs-bg" id="digestModal">
   <div class="bsheet">
@@ -304,14 +327,15 @@
 </div>
 
 <!-- jsPDF + autotable + lz-string (CDN, fine for GitHub Pages) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
 
 <script src="js/data.js"></script>
 <script src="js/demo-data.js"></script>
 <script src="js/render.js"></script>
 <script src="js/pdf.js"></script>
+<script src="js/github-sync.js"></script>
 <script src="js/app.js"></script>
 <script>
 // Each deploy publishes version.json. Its SHA is part of the worker URL so an
