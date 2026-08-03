@@ -197,7 +197,7 @@
         '<span class="badge ' + (has ? "" : "empty") + '">' + (has ? r.tab.length + " evts" : "blank grid") + "</span>" +
         '<button class="btn sm" data-act="editTab" data-song="' + i + '" data-ri="' + ri + '">✎ tab</button>' +
         '<button class="btn sm danger" data-act="delRiff" data-song="' + i + '" data-ri="' + ri + '">✕</button>' +
-        '<input class="rnote" data-song="' + i + '" data-ri="' + ri + '" data-part="note" value="' + esc(r.note) + '" placeholder="Annotation (e.g. ×4)" style="grid-column:1/-1;margin-top:.3rem;padding:.3rem .45rem;border:1px solid var(--line2);border-radius:6px">' +
+        '<textarea class="rnote" data-song="' + i + '" data-ri="' + ri + '" data-part="note" rows="2" placeholder="Annotation (e.g. ×4)">' + esc(r.note) + "</textarea>" +
         "</div>";
     }).join("");
 

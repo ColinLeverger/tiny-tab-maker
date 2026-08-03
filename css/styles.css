@@ -138,6 +138,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .riff-row .rl{font-weight:600}
 .riff-row .badge{font-size:.72rem;color:#fff;background:var(--ok);border-radius:10px;padding:.1rem .4rem}
 .riff-row .badge.empty{background:var(--muted)}
+.riff-row .rnote{grid-column:1/-1;width:100%;min-width:0;min-height:2.8rem;margin-top:.3rem;padding:.3rem .45rem;
+  border:1px solid var(--line2);border-radius:6px;resize:vertical;field-sizing:content;overflow-wrap:anywhere;line-height:1.35}
 .addline{background:none;border:1px dashed var(--line2);border-radius:7px;color:var(--accent);
   padding:.35rem .5rem;cursor:pointer;width:100%}
 .addline:hover{background:#f0f4fb}
