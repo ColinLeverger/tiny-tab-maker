@@ -258,16 +258,21 @@ pre.tab{font-family:var(--mono);font-size:calc(var(--fs,12pt) * 0.7);line-height
 .sync-grid label:first-child,.sync-grid label:last-child{grid-column:1/-1}
 .sync-grid input{display:block;width:100%;margin-top:.18rem;padding:.5rem;border:1px solid var(--line2);border-radius:7px}
 .sync-transfer{display:flex;align-items:center;gap:.75rem;margin:.7rem 0;padding:.6rem;border:1px solid var(--line);border-radius:8px;font-size:.78rem;line-height:1.4}
-.sync-transfer small{color:#b3261e}.sync-transfer #syncQr{flex:0 0 148px;min-height:148px;display:grid;place-items:center;color:var(--muted);text-align:center}
-.sync-transfer #syncQr img,.sync-transfer #syncQr canvas{width:148px!important;height:148px!important}
+.sync-transfer small{color:#b3261e}.sync-transfer #syncQr{flex:0 0 196px;min-height:196px;display:grid;place-items:center;color:var(--muted);text-align:center}
+.sync-transfer #syncQr img,.sync-transfer #syncQr canvas{width:196px!important;height:196px!important}
 .sync-state{padding:.45rem .6rem;border-radius:7px;background:#f0f2f5;color:var(--muted);font-size:.82rem}
 .sync-state.ok{background:#edf7ef;color:var(--ok)}
 .sync-state.warn{background:#fdecec;color:#b3261e}
 .sync-library{margin:.7rem 0;padding:.6rem;border:1px solid var(--line);border-radius:8px;background:#fafbfc}
 .sync-library>label{display:block;margin-bottom:.25rem;font-size:.75rem;color:var(--muted)}
+#syncScan{display:none;width:100%;margin-bottom:.45rem}
 .sync-picker{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:.4rem;margin-bottom:.45rem}
 .sync-picker select{min-width:0;padding:.45rem;border:1px solid var(--line2);border-radius:7px;background:#fff}
 .sync-actions{flex-wrap:wrap}
+.sync-scan-sheet{width:min(94vw,460px);height:min(78dvh,620px);display:flex;flex-direction:column;gap:.65rem}
+.sync-camera{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:10px;background:#111;color:#fff}
+.sync-camera video{width:100%;height:100%;object-fit:cover}
+.sync-camera span{position:absolute;left:.6rem;right:.6rem;bottom:.6rem;padding:.45rem;border-radius:7px;background:#000a;text-align:center;font-size:.8rem}
 
 /* PDF page-count readout in the top bar */
 .pagecount{color:#aeb9c6;font-size:.78rem;white-space:nowrap}
@@ -590,6 +595,7 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
   .sync-grid{grid-template-columns:1fr}
   .sync-grid label{grid-column:auto!important}
   .sync-transfer{display:none}
+  #syncScan{display:block}
   .sync-picker{grid-template-columns:minmax(0,1fr) auto}
   .sync-picker #syncLoad{grid-column:1/-1}
   body.stage .mobile-dock{display:none}

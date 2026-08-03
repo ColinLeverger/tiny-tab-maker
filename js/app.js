@@ -1253,6 +1253,7 @@
     else openSyncSettings();
   }
   var syncQrTimer;
+  var syncScanStream = null, syncScanFrame = null, syncScanRun = 0, syncScanCanvas = document.createElement("canvas");
   function drawSyncQr() {
     var host = $("#syncQr"); if (!host) return;
     host.innerHTML = "";
@@ -1262,7 +1263,7 @@
       var code = root.TTMGitHubSync.transferCode(syncForm());
       new root.QRCode(host, {
         text: location.origin + location.pathname + "#sync=" + code,
-        width: 148, height: 148, correctLevel: root.QRCode.CorrectLevel.L
+        width: 196, height: 196, correctLevel: root.QRCode.CorrectLevel.L
       });
       host.removeAttribute("title");
     } catch (_) { host.textContent = "Enter the repository and token to create the QR code"; }
@@ -1283,7 +1284,51 @@
     drawSyncQr();
     if (config.repo && config.token) refreshSyncFiles().catch(function () {});
   }
-  function closeSyncSettings() { $("#syncModal").classList.remove("open"); }
+  function stopSyncScan() {
+    syncScanRun++;
+    cancelAnimationFrame(syncScanFrame); syncScanFrame = null;
+    if (syncScanStream) syncScanStream.getTracks().forEach(function (track) { track.stop(); });
+    syncScanStream = null; $("#syncCamera").srcObject = null; $("#syncScanModal").classList.remove("open");
+  }
+  function scanSyncFrame() {
+    var video = $("#syncCamera");
+    if (!syncScanStream) return;
+    if (video.readyState >= 2 && video.videoWidth) {
+      var scale = Math.min(1, 720 / video.videoWidth), canvas = syncScanCanvas;
+      canvas.width = Math.round(video.videoWidth * scale); canvas.height = Math.round(video.videoHeight * scale);
+      var context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      var pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      var found = root.jsQR(pixels.data, pixels.width, pixels.height, { inversionAttempts: "dontInvert" });
+      if (found) {
+        try {
+          var url = new URL(found.data);
+          if (url.origin !== location.origin || url.pathname.replace(/index\.html$/, "") !== location.pathname.replace(/index\.html$/, "")) throw new Error("not from this app");
+          var match = url.hash.match(/[#&]sync=([^&]+)/); if (!match) throw new Error("not a sync QR code");
+          var transferred = root.TTMGitHubSync.readTransferCode(match[1]);
+          stopSyncScan(); openSyncSettings(transferred); setStatus("✓ GitHub setup scanned — choose a songbook"); return;
+        } catch (_) { $("#syncScanState").textContent = "That is not this app's sync QR code"; }
+      }
+    }
+    syncScanFrame = requestAnimationFrame(scanSyncFrame);
+  }
+  function startSyncScan() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !root.jsQR) {
+      alert("QR scanning is unavailable — update the app and allow camera access."); return;
+    }
+    var run = ++syncScanRun;
+    $("#syncScanState").textContent = "Starting camera…"; $("#syncScanModal").classList.add("open");
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false }).then(function (stream) {
+      if (run !== syncScanRun) { stream.getTracks().forEach(function (track) { track.stop(); }); return false; }
+      syncScanStream = stream; var video = $("#syncCamera"); video.srcObject = stream;
+      return video.play().then(function () { return true; });
+    }).then(function (active) {
+      if (!active) return; $("#syncScanState").textContent = "Looking for QR code…"; scanSyncFrame();
+    }).catch(function (error) {
+      if (run !== syncScanRun) return; stopSyncScan(); alert("Could not open the camera: " + error.message);
+    });
+  }
+  function closeSyncSettings() { stopSyncScan(); $("#syncModal").classList.remove("open"); }
   function configureSync() {
     gitSync.configure(syncForm());
   }
@@ -1306,6 +1351,11 @@
     }).finally(function () { button.disabled = false; });
   }
   $("#syncBtn").addEventListener("click", openSyncSettings);
+  $("#syncScan").addEventListener("click", startSyncScan);
+  $("#syncScanClose").addEventListener("click", stopSyncScan);
+  $("#syncScanCancel").addEventListener("click", stopSyncScan);
+  $("#syncScanModal").addEventListener("click", function (e) { if (e.target === this) stopSyncScan(); });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) stopSyncScan(); });
   ["syncRepo", "syncBranch", "syncToken"].forEach(function (id) {
     $("#" + id).addEventListener("input", function () {
       clearTimeout(syncQrTimer); syncQrTimer = setTimeout(drawSyncQr, 200);
@@ -2533,6 +2583,7 @@
   // keyboard: Esc closes modal / leaves View; arrows flip songs in View mode
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
+      if ($("#syncScanModal").classList.contains("open")) { stopSyncScan(); return; }
       if ($("#syncModal").classList.contains("open")) { closeSyncSettings(); return; }
       if ($("#mobileMoreModal").classList.contains("open")) { $("#mobileMoreClose").click(); return; }
       if ($("#tabZoom").classList.contains("open")) { closeTabZoom(); return; }

@@ -308,10 +308,11 @@
     </div>
     <div class="sync-transfer">
       <div id="syncQr" role="img" aria-label="QR code for iPhone sync setup"></div>
-      <div><b>Set up your iPhone</b><br>Scan this code with the iPhone camera, then open the link to prefill the repository and token.<br><small>⚠ Treat this QR code like the token itself. Do not share it.</small></div>
+      <div><b>Set up your iPhone</b><br>In the iPhone app, open Songbooks and tap <b>Scan laptop QR</b> to prefill the repository and token.<br><small>⚠ Treat this QR code like the token itself. Do not share it.</small></div>
     </div>
     <div class="sync-library">
       <label for="syncRemote">Load a songbook from GitHub</label>
+      <button class="btn primary" id="syncScan">📷 Scan laptop QR</button>
       <div class="sync-picker">
         <select id="syncRemote"><option value="">Refresh to list songbooks…</option></select>
         <button class="btn" id="syncRefresh">↻ List</button>
@@ -330,6 +331,15 @@
   </div>
 </div>
 
+<div class="modal-bg bs-bg" id="syncScanModal">
+  <div class="bsheet sync-scan-sheet">
+    <div class="bs-head"><h3>Scan laptop QR</h3><button class="btn sm" id="syncScanClose">✕</button></div>
+    <div class="sync-camera"><video id="syncCamera" playsinline muted></video><span>Point the camera at the QR code shown on your laptop</span></div>
+    <div id="syncScanState" class="sync-state">Starting camera…</div>
+    <button class="btn" id="syncScanCancel">Cancel</button>
+  </div>
+</div>
+
 <!-- ===== PRACTICE DIGEST (all rehearsal marks & notes, one page) ===== -->
 <div class="modal-bg bs-bg" id="digestModal">
   <div class="bsheet">
@@ -341,11 +351,12 @@
   </div>
 </div>
 
-<!-- jsPDF + autotable + lz-string + QRCode (CDN, fine for GitHub Pages) -->
+<!-- jsPDF + autotable + lz-string + QR tools (CDN, fine for GitHub Pages) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" integrity="sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx" crossorigin="anonymous"></script>
 
 <script src="js/data.js"></script>
 <script src="js/demo-data.js"></script>

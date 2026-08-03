@@ -181,10 +181,10 @@ private GitHub repository using the Contents API:
 4. On the first device choose **Push this device**. Use **List** and **Load**
    to select that songbook on each additional device.
 
-On a laptop, the sync panel also shows a QR code. Scan it with the iPhone
-camera to open the app with the repository, branch and token prefilled, then
-choose the songbook to load. The credentials stay in the URL fragment (not sent
-to GitHub Pages), but the QR itself is as sensitive as the token.
+On a laptop, the sync panel also shows a QR code. On iPhone, open the same panel
+and tap **Scan laptop QR**: the installed PWA uses the rear camera to prefill the
+repository, branch and token, then lets you choose the songbook to load. Camera
+frames stay on-device. The QR itself is as sensitive as the token.
 
 One repository can contain any number of JSON songbooks. On laptops, the
 always-visible **Songbooks** button opens this library directly. **List** discovers
