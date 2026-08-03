@@ -388,8 +388,13 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
   max-width:536px;margin:auto;padding:.5rem .65rem;border:1px solid var(--line2);border-radius:10px;
   background:#fff;box-shadow:0 4px 18px rgba(0,0,0,.25)}
 .cp-context label{display:block;margin-bottom:.15rem;color:var(--muted);font-size:.65rem;text-transform:uppercase}
+.cp-edit{position:relative}
 .cp-context textarea{display:block;width:100%;min-height:4.4rem;padding:.35rem .45rem;resize:none;
-  border:1px solid var(--line2);border-radius:6px;font:600 16px/1.35 var(--mono)}
+  border:1px solid var(--line2);border-radius:6px;font:600 16px/1.35 var(--mono);caret-color:var(--accent)}
+.cp-marker{position:absolute;inset:0;padding:.35rem .45rem;border:1px solid var(--line2);border-radius:6px;
+  overflow:hidden;background:#fff;font:600 16px/1.35 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none}
+#cpText:focus+.cp-marker{display:none}
+.cp-caret{display:inline-block;width:3px;height:1.1em;margin:0 1px;vertical-align:-.15em;background:var(--accent)}
 .cp-compose{display:flex;align-items:center;gap:.6rem;margin:.7rem 0}
 #cpPreview{flex:1;padding:.55rem .7rem;border-radius:9px;background:#f0f2f5;font:700 1.2rem var(--mono)}
 #cpInsert{min-height:44px}

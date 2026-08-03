@@ -475,6 +475,9 @@
     var edit = $("#cpText");
     edit.value = CP.input.value;
     edit.setSelectionRange(CP.at, CP.at);
+    var start = Math.max(0, CP.at - 50), end = Math.min(edit.value.length, CP.at + 70);
+    $("#cpBefore").textContent = (start ? "…" : "") + edit.value.slice(start, CP.at);
+    $("#cpAfter").textContent = edit.value.slice(CP.at, end) + (end < edit.value.length ? "…" : "");
     $$("#chordPadModal [data-cp-root]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-root") === CP.root); });
     $$("#chordPadModal [data-cp-acc]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-acc") === CP.acc); });
     $$("#chordPadModal [data-cp-suffix]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-suffix") === CP.suffix); });
@@ -530,6 +533,7 @@
     CP.input.setSelectionRange(CP.at, CP.at);
     CP.input.dispatchEvent(new Event("input", { bubbles: true }));
   });
+  $("#cpText").addEventListener("blur", function () { if (CP) { CP.at = this.selectionStart; cpDraw(); } });
   $("#cpKeyboard").addEventListener("click", focusChordText);
 
   /* =====================================================================
