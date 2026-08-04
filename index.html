@@ -397,6 +397,17 @@
       scope: "./", updateViaCache: "none"
     });
   }
+  function activated(reg, sha) {
+    return new Promise(function (resolve, reject) {
+      var deadline = Date.now() + 30000;
+      function check() {
+        if (workerSha(reg.active) === sha) { resolve(); return; }
+        if (Date.now() >= deadline) { reject(new Error("update activation timed out")); return; }
+        setTimeout(check, 200);
+      }
+      check();
+    });
+  }
 
   window.TTMUpdate = function () {
     return latest().then(function (v) {
@@ -413,20 +424,11 @@
           reload();
           return "reloading";
         }
-        navigator.serviceWorker.addEventListener("controllerchange", reload, { once: true });
         return install(v).then(function (newReg) {
-          if (workerSha(newReg.active) === v.sha) {
+          return activated(newReg, v.sha).then(function () {
             reload();
             return "reloading";
-          }
-          var worker = newReg.installing || newReg.waiting;
-          if (worker && worker.state === "activated") reload();
-          else if (worker) {
-            worker.addEventListener("statechange", function () {
-              if (worker.state === "activated") reload();
-            });
-          }
-          return "downloading";
+          });
         });
       });
     });

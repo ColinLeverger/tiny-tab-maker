@@ -1193,7 +1193,7 @@
 
   // manual "Update app": version.json gives us a cache-proof deploy SHA;
   // the page-level updater installs that exact worker and reloads on activation.
-  var updateStateTimer;
+  var updateStateTimer, updateBusy = false;
   root.setMobileUpdateState = function (state) {
     var button = $('.mobile-dock [data-mobile="update"]'); if (!button) return;
     clearTimeout(updateStateTimer);
@@ -1205,15 +1205,17 @@
     }
   };
   function checkUpdate() {
+    if (updateBusy) return;
     root.setMobileUpdateState("checking");
     if (!("serviceWorker" in navigator)) { root.setMobileUpdateState("stale"); setStatus("⚠︎ no service-worker support here", true); return; }
     if (!root.TTMUpdate) { root.setMobileUpdateState("stale"); setStatus("⚠︎ updater unavailable — reload once online", true); return; }
+    updateBusy = true;
     setStatus("⟳ checking for update…");
     root.TTMUpdate().then(function (state) {
+      updateBusy = false;
       if (state === "latest") { root.setMobileUpdateState("success"); setStatus("✓ Already the latest version"); }
-      else if (state === "downloading") { root.setMobileUpdateState("checking"); setStatus("⟳ downloading new version…"); }
       else { root.setMobileUpdateState("checking"); setStatus("✓ Updated — reloading…"); }
-    }).catch(function () { root.setMobileUpdateState("stale"); setStatus("⚠︎ update check failed (offline?)", true); });
+    }).catch(function () { updateBusy = false; root.setMobileUpdateState("stale"); setStatus("⚠︎ update check failed (offline?)", true); });
   }
 
   /* ---------------- GitHub repository sync ---------------- */
