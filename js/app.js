@@ -540,14 +540,14 @@
     try { edit.focus({ preventScroll: true }); } catch (_) { edit.focus(); }
     edit.setSelectionRange(CP.at, CP.end);
   }
-  function cpInsert(text) {
+  function cpInsert(text, at, end) {
     if (!CP) return;
     if (!CP.changed) { pendingSnap = clone(STATE); pendingCommitted = false; CP.changed = true; }
     var input = CP.input, edit = $("#cpText");
-    var at = edit.selectionStart == null ? CP.at : edit.selectionStart;
-    var end = edit.selectionEnd == null ? at : edit.selectionEnd;
+    if (at == null) at = edit.selectionStart == null ? CP.at : edit.selectionStart;
+    if (end == null) end = edit.selectionEnd == null ? at : edit.selectionEnd;
     input.value = input.value.slice(0, at) + text + input.value.slice(end);
-    CP.at += text.length; CP.end = CP.at;
+    CP.at = at + text.length; CP.end = CP.at;
     input.setSelectionRange(CP.at, CP.at);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     cpDraw();
@@ -565,8 +565,7 @@
       var step = +b.getAttribute("data-cp-step");
       var changed = FG.transposeChordText(content, step, FG.keyPrefersSharps(FG.transposeKey(song && song.key, step)));
       if (changed === content) { alert("No unambiguous chords found. Free text was left untouched."); return; }
-      CP.at = 0; CP.end = content.length;
-      cpInsert(changed); return;
+      cpInsert(changed, 0, content.length); return;
     }
     else return;
     cpDraw();
