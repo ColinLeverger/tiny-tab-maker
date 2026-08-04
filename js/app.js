@@ -560,10 +560,12 @@
     else if (b.hasAttribute("data-cp-suffix")) CP.suffix = b.getAttribute("data-cp-suffix");
     else if (b.hasAttribute("data-cp-text")) { cpInsert(b.getAttribute("data-cp-text")); return; }
     else if (b.hasAttribute("data-cp-step")) {
-      var selected = CP.input.value.slice(CP.at, CP.end);
+      var content = CP.input.value;
       var song = STATE.songs[+CP.input.getAttribute("data-song")];
-      var changed = FG.transposeChordText(selected, +b.getAttribute("data-cp-step"), FG.keyPrefersSharps(song && song.key));
-      if (!selected || changed === selected) { alert("Select one or more chords first."); return; }
+      var step = +b.getAttribute("data-cp-step");
+      var changed = FG.transposeChordText(content, step, FG.keyPrefersSharps(FG.transposeKey(song && song.key, step)));
+      if (changed === content) { alert("No unambiguous chords found. Free text was left untouched."); return; }
+      CP.at = 0; CP.end = content.length;
       cpInsert(changed); return;
     }
     else return;

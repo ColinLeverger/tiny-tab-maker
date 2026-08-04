@@ -427,6 +427,7 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
 #cpPreview{flex:1;padding:.55rem .7rem;border-radius:9px;background:#f0f2f5;font:700 1.2rem var(--mono)}
 #cpInsert{min-height:44px}
 .cp-tools .chip{flex:1}
+.cp-transpose .chip{flex:1 1 0}
 
 /* setlist rows: big touch targets, tap row = jump, ▲▼ = reorder */
 .set-row{display:flex;align-items:center;gap:.55rem;min-height:48px;padding:.3rem .25rem;

@@ -59,8 +59,8 @@ printers with no colour. **Compact** packs several songs per page (and never
 splits a song across two pages). **Size** sets the chord + tab text size.
 
 The **−1 / +1** buttons beside a song's key preview and transpose its key and
-unambiguous chord tokens. Free text and tabs stay untouched; select text in the
-chord pad to transpose an intentionally skipped chord.
+unambiguous chord tokens. Free text and tabs stay untouched; the chord pad has
+matching buttons that transpose every recognized chord in the current section.
 
 ## Rehearsal mode (phone / tablet)
 
