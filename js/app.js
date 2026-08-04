@@ -921,18 +921,16 @@
   }
   function isNoteCol(e) { return e[0] !== "bar" && e[0] !== "repopen" && e[0] !== "repclose" && e[0] !== "mark" && e[0] !== "nl"; }
 
-  function openTabEditor(si, ri, fromPreview) {
+  function openTabEditor(si, ri) {
     var r = STATE.songs[si].riffs[ri];
-    TAB = { si: si, ri: ri, events: clone(r.tab || []), fromPreview: !!fromPreview };
+    TAB = { si: si, ri: ri, events: clone(r.tab || []) };
     $("#tabModalTitle").textContent = "Tab — " + (r.label || "Riff");
     drawGrid();
     $("#tabModal .modal").scrollTop = 0;
     $("#tabModal").classList.add("open");
   }
   function closeTab() {
-    var back = TAB && TAB.fromPreview;
     $("#tabModal").classList.remove("open"); TAB = null;
-    if (back) setTimeout(dlBack, 0);
   }
 
   function drawGrid() {
@@ -1879,7 +1877,6 @@
     var sheet = e.target.closest(".sheet.songsheet"); if (!sheet) return;
     var vi = $$("#preview .sheet.songsheet").indexOf(sheet); if (vi < 0) return;
     var si = viewToBook(vi); if (si == null || si < 0) return;   // scoped -> book
-    dlRemember();
     // tabs open the grid editor directly
     var tabEl = e.target.closest("pre.tab, .tab-head");
     if (tabEl) {
@@ -1887,16 +1884,20 @@
         : (tabEl.previousElementSibling && tabEl.previousElementSibling.classList.contains("tab-head")
            ? tabEl.previousElementSibling : null);
       var ri = myHead ? $$(".tab-head", sheet).indexOf(myHead) : -1;
-      if (ri >= 0 && STATE.songs[si] && STATE.songs[si].riffs[ri]) { openTabEditor(si, ri, true); return; }
+      if (ri >= 0 && STATE.songs[si] && STATE.songs[si].riffs[ri]) { openTabEditor(si, ri); return; }
     }
-    UI.openSong = si; renderEditor();
-    var card = $('[data-card="' + si + '"]');
-    var focusEl = null;
+    // chord rows already have a contextual editor; opening it avoids all scrolling.
     var tr = e.target.closest(".chords tr");
     if (tr) {
       var ci = $$(".chords tr", sheet).indexOf(tr);
-      focusEl = $('input[data-song="' + si + '"][data-ci="' + ci + '"][data-part="value"]');
-    } else if (e.target.closest(".pills") || (e.target.classList && e.target.classList.contains("raw"))) {
+      openChordPad($('input[data-song="' + si + '"][data-ci="' + ci + '"][data-part="value"]'));
+      return;
+    }
+    dlRemember();
+    UI.openSong = si; renderEditor();
+    var card = $('[data-card="' + si + '"]');
+    var focusEl = null;
+    if (e.target.closest(".pills") || (e.target.classList && e.target.classList.contains("raw"))) {
       focusEl = $('textarea[data-song="' + si + '"][data-field="structure"]');
     } else if (e.target.closest(".songsheet-head")) {
       focusEl = $('input[data-song="' + si + '"][data-field="title"]');
