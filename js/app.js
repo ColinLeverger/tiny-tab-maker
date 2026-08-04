@@ -250,7 +250,9 @@
         "</div>" +
         '<div class="row"><label>Title</label><input data-song="' + i + '" data-field="title" value="' + esc(s.title) + '"></div>' +
         '<div class="grid2">' +
-          '<div class="row"><label>Key</label><input data-song="' + i + '" data-field="key" value="' + esc(s.key) + '"></div>' +
+          '<div class="row"><label>Key</label><div class="chord-value"><input data-song="' + i + '" data-field="key" value="' + esc(s.key) + '">' +
+            '<button class="btn sm" data-act="transpose" data-step="-1" data-song="' + i + '" title="Transpose chords down one semitone">−1</button>' +
+            '<button class="btn sm" data-act="transpose" data-step="1" data-song="' + i + '" title="Transpose chords up one semitone">+1</button></div></div>' +
           '<div class="row"><label>Tempo</label><div class="tempo-wrap">' +
             '<input data-song="' + i + '" data-field="tempo" value="' + esc(s.tempo) + '">' +
             '<button class="btn sm" data-act="tapTempo" data-song="' + i + '" title="Tap the beat on this button — after 10 s (or a pause) the tempo lands in the field as ~BPM">🥁</button>' +
@@ -390,6 +392,24 @@
 
   function renderAll() { ensureIds(); applyAutoNumber(); renderScopeUI(); renderEditor(); updatePreview(); persist(); }
 
+  function transposeSong(si, semitones) {
+    var s = STATE.songs[si]; if (!s) return;
+    var key = FG.transposeKey(s.key, semitones);
+    var sharps = FG.keyPrefersSharps(key);
+    var rows = (s.chords || []).map(function (c) {
+      return { chord: c, value: FG.transposeChordText(c.value, semitones, sharps) };
+    }).filter(function (r) { return r.value !== r.chord.value; });
+    if (key === s.key && !rows.length) { alert("No unambiguous chords found. Free text was left untouched."); return; }
+    var lines = ['Transpose “' + (s.title || "Untitled") + '” ' + (semitones > 0 ? "+" : "") + semitones + ' semitone?'];
+    if (key !== s.key) lines.push("", "Key: " + s.key + "  →  " + key);
+    rows.forEach(function (r) { lines.push((r.chord.label || "Chords") + ": " + r.chord.value + "  →  " + r.value); });
+    lines.push("", "Free text stays unchanged. Tabs are not transposed.");
+    if (!confirm(lines.join("\n"))) return;
+    pushHistory(); touchUpdated(); s.key = key;
+    rows.forEach(function (r) { r.chord.value = r.value; });
+    renderAll();
+  }
+
   /* ---------------- editor events ---------------- */
   // snapshot the state when a field gains focus, so a whole typing burst in that
   // field becomes a single undo step (committed on the first keystroke).
@@ -443,7 +463,7 @@
     if (tog != null) { UI.openSong = (UI.openSong === +tog) ? null : +tog; renderEditor(); return; }
     var act = btn.getAttribute("data-act");
     var si = +btn.getAttribute("data-song"); var s = STATE.songs[si];
-    if (act !== "editTab" && act !== "chordPad") touchUpdated(); // opening a tool changes nothing
+    if (act !== "editTab" && act !== "chordPad" && act !== "transpose") touchUpdated(); // opening a tool changes nothing
     if (act === "up" || act === "down") {
       e.stopPropagation();
       var j = act === "up" ? si - 1 : si + 1;
@@ -460,6 +480,7 @@
     if (act === "delRiff") { pushHistory(); s.riffs.splice(+btn.getAttribute("data-ri"), 1); renderAll(); return; }
     if (act === "editTab") { openTabEditor(si, +btn.getAttribute("data-ri")); return; }
     if (act === "chordPad") { openChordPad(btn.parentElement.querySelector('input[data-part="value"]')); return; }
+    if (act === "transpose") { transposeSong(si, +btn.getAttribute("data-step")); return; }
     if (act === "rhColor") {
       var rk1 = btn.getAttribute("data-sec"), e1 = s.rehearsal && s.rehearsal[rk1];
       if (!e1) return;
@@ -485,7 +506,7 @@
     $("#cpPreview").textContent = CP.root + CP.acc + CP.suffix;
     var edit = $("#cpText");
     edit.value = CP.input.value;
-    edit.setSelectionRange(CP.at, CP.at);
+    edit.setSelectionRange(CP.at, CP.end);
     $("#cpBefore").textContent = edit.value.slice(0, CP.at);
     $("#cpAfter").textContent = edit.value.slice(CP.at);
     var marker = $("#cpMarker"), caret = $(".cp-caret", marker);
@@ -497,8 +518,9 @@
   function openChordPad(input) {
     if (!input) return;
     var at = lastChordField === input && input.selectionStart != null ? input.selectionStart : input.value.length;
+    var end = lastChordField === input && input.selectionEnd != null ? input.selectionEnd : at;
     var scrollY = root.pageYOffset || 0;
-    CP = { input: input, at: at, root: "C", acc: "", suffix: "", changed: false, scrollY: scrollY };
+    CP = { input: input, at: at, end: end, root: "C", acc: "", suffix: "", changed: false, scrollY: scrollY };
     document.body.style.top = -scrollY + "px";
     input.blur(); $("#chordPadModal").classList.add("open");
     document.documentElement.classList.add("cp-open"); document.body.classList.add("cp-open");
@@ -516,7 +538,7 @@
     if (!CP) return;
     var edit = $("#cpText");
     try { edit.focus({ preventScroll: true }); } catch (_) { edit.focus(); }
-    edit.setSelectionRange(CP.at, CP.at);
+    edit.setSelectionRange(CP.at, CP.end);
   }
   function cpInsert(text) {
     if (!CP) return;
@@ -525,7 +547,7 @@
     var at = edit.selectionStart == null ? CP.at : edit.selectionStart;
     var end = edit.selectionEnd == null ? at : edit.selectionEnd;
     input.value = input.value.slice(0, at) + text + input.value.slice(end);
-    CP.at += text.length;
+    CP.at += text.length; CP.end = CP.at;
     input.setSelectionRange(CP.at, CP.at);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     cpDraw();
@@ -537,6 +559,13 @@
     else if (b.hasAttribute("data-cp-acc")) CP.acc = b.getAttribute("data-cp-acc");
     else if (b.hasAttribute("data-cp-suffix")) CP.suffix = b.getAttribute("data-cp-suffix");
     else if (b.hasAttribute("data-cp-text")) { cpInsert(b.getAttribute("data-cp-text")); return; }
+    else if (b.hasAttribute("data-cp-step")) {
+      var selected = CP.input.value.slice(CP.at, CP.end);
+      var song = STATE.songs[+CP.input.getAttribute("data-song")];
+      var changed = FG.transposeChordText(selected, +b.getAttribute("data-cp-step"), FG.keyPrefersSharps(song && song.key));
+      if (!selected || changed === selected) { alert("Select one or more chords first."); return; }
+      cpInsert(changed); return;
+    }
     else return;
     cpDraw();
   });
@@ -547,10 +576,11 @@
     if (!CP.changed) { pendingSnap = clone(STATE); pendingCommitted = false; CP.changed = true; }
     CP.input.value = this.value;
     CP.at = this.selectionStart == null ? this.value.length : this.selectionStart;
-    CP.input.setSelectionRange(CP.at, CP.at);
+    CP.end = this.selectionEnd == null ? CP.at : this.selectionEnd;
+    CP.input.setSelectionRange(CP.at, CP.end);
     CP.input.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  $("#cpText").addEventListener("blur", function () { if (CP) { CP.at = this.selectionStart; cpDraw(); } });
+  $("#cpText").addEventListener("blur", function () { if (CP) { CP.at = this.selectionStart; CP.end = this.selectionEnd; cpDraw(); } });
   $("#cpMarker").addEventListener("click", focusChordText);
   $("#cpKeyboard").addEventListener("click", focusChordText);
 

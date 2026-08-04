@@ -340,6 +340,65 @@
              bpb: meta ? +meta[2] : 4, bpm: meta ? +meta[1] : null };
   }
 
+  /* ---------- conservative chord transposition ----------------------- */
+  var NOTE_INDEX = { C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4,
+                     F: 5, "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9,
+                     "A#": 10, Bb: 10, B: 11 };
+  var NOTES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  var NOTES_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+  var KEY_MAJOR = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+  var KEY_MINOR = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"];
+  var CHORD_RE = /^([A-G])([#b♯♭]?)(?:(maj|min|dim|aug|sus|add|m)?(\d*)([#b]\d+)*(sus[24]?|add\d+)?)?(?:\/([A-G])([#b♯♭]?))?$/;
+
+  function noteIndex(root, accidental) {
+    accidental = accidental === "♯" ? "#" : accidental === "♭" ? "b" : accidental;
+    return NOTE_INDEX[root + accidental];
+  }
+  function transposeChord(chord, semitones, preferSharps) {
+    var m = String(chord || "").match(CHORD_RE); if (!m) return null;
+    var notes = preferSharps ? NOTES_SHARP : NOTES_FLAT;
+    var root = notes[(noteIndex(m[1], m[2]) + semitones + 120) % 12];
+    var suffixEnd = m[7] ? chord.lastIndexOf("/") : chord.length;
+    var out = root + chord.slice(m[1].length + m[2].length, suffixEnd);
+    if (m[7]) out += "/" + notes[(noteIndex(m[7], m[8]) + semitones + 120) % 12];
+    return out;
+  }
+  function transposeKey(key, semitones) {
+    var m = String(key || "").match(/^([A-G])([#b♯♭]?)(.*)$/); if (!m) return key;
+    var minor = /^m(?!aj)/.test(m[3]);
+    var names = minor ? KEY_MINOR : KEY_MAJOR;
+    return names[(noteIndex(m[1], m[2]) + semitones + 120) % 12] + m[3];
+  }
+  function keyPrefersSharps(key) {
+    var m = String(key || "").match(/^([A-G])([#b]?)(m(?!aj))?/); if (!m) return false;
+    if (m[2]) return m[2] === "#";
+    return (m[3] ? ["E", "B"] : ["G", "D", "A", "E", "B"]).indexOf(m[1]) >= 0;
+  }
+  function transposeChordText(text, semitones, preferSharps) {
+    text = String(text || "");
+    var re = /(^|[^A-Za-z0-9#♯b♭])([A-G](?:[#b♯♭])?(?:(?:maj|min|dim|aug|sus|add|m)?\d*(?:[#b]\d+)*(?:sus[24]?|add\d+)?)?(?:\/[A-G](?:[#b♯♭])?)?)(?=$|[^A-Za-z0-9#♯b♭])/g;
+    var found = [], match;
+    while ((match = re.exec(text))) {
+      var start = match.index + match[1].length;
+      found.push({ start: start, end: start + match[2].length, chord: match[2] });
+      if (!match[0].length) re.lastIndex++;
+    }
+    var trimmed = text.trim();
+    found.forEach(function (hit, i) {
+      var prev = found[i - 1], next = found[i + 1];
+      var beside = (prev && /^[\s,|/→()\-–—]*$/.test(text.slice(prev.end, hit.start))) ||
+                   (next && /^[\s,|/→()\-–—]*$/.test(text.slice(hit.end, next.start)));
+      var leading = !text.slice(0, hit.start).trim() && /^\s*(?:[—–-]|\()/.test(text.slice(hit.end));
+      hit.safe = hit.chord.length > 1 || trimmed === hit.chord || beside || leading;
+    });
+    for (var i = found.length - 1; i >= 0; i--) {
+      var hit = found[i]; if (!hit.safe) continue;
+      var changed = transposeChord(hit.chord, semitones, preferSharps);
+      if (changed) text = text.slice(0, hit.start) + changed + text.slice(hit.end);
+    }
+    return text;
+  }
+
   /* ---------- misc helpers -------------------------------------------- */
   function tabCount(song) {
     return (song.riffs || []).filter(function (r) { return r.tab && r.tab.length; }).length;
@@ -377,6 +436,8 @@
     repeatCount: repeatCount, tabCount: tabCount,
     grayHex: grayHex, inkOnGray: inkOnGray, hexRgb: hexRgb,
     rhythmTokens: rhythmTokens, rhythmSVG: rhythmSVG, parseRhythmLine: parseRhythmLine,
+    transposeChord: transposeChord, transposeKey: transposeKey,
+    keyPrefersSharps: keyPrefersSharps, transposeChordText: transposeChordText,
     todayISO: todayISO, emptySong: emptySong, emptyState: emptyState
   };
 
