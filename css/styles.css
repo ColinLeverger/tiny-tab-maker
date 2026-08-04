@@ -13,8 +13,8 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;touch-action:pan-x pan-y}
 body{font-family:var(--sans);color:var(--ink);background:var(--bg);font-size:14px}
-html.cp-open,body.cp-open{overflow:hidden;overscroll-behavior:none;background:#fff}
-body.cp-open{position:fixed;left:0;right:0}
+html.cp-open{overflow:hidden;overscroll-behavior:none}
+body.cp-open{position:fixed;left:0;right:0;height:auto;overflow:visible}
 button,input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 h1,h2,h3{margin:.2em 0}
 code{font-family:var(--mono);background:#eef1f4;padding:0 3px;border-radius:3px;font-size:.9em}
