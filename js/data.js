@@ -346,8 +346,6 @@
                      "A#": 10, Bb: 10, B: 11 };
   var NOTES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
   var NOTES_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
-  var KEY_MAJOR = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-  var KEY_MINOR = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"];
   var CHORD_RE = /^([A-G])([#b♯♭]?)(?:(maj|min|dim|aug|sus|add|m)?(\d*)([#b]\d+)*(sus[24]?|add\d+)?)?(?:\/([A-G])([#b♯♭]?))?$/;
 
   function noteIndex(root, accidental) {
@@ -365,14 +363,7 @@
   }
   function transposeKey(key, semitones) {
     var m = String(key || "").match(/^([A-G])([#b♯♭]?)(.*)$/); if (!m) return key;
-    var minor = /^m(?!aj)/.test(m[3]);
-    var names = minor ? KEY_MINOR : KEY_MAJOR;
-    return names[(noteIndex(m[1], m[2]) + semitones + 120) % 12] + m[3];
-  }
-  function keyPrefersSharps(key) {
-    var m = String(key || "").match(/^([A-G])([#b]?)(m(?!aj))?/); if (!m) return false;
-    if (m[2]) return m[2] === "#";
-    return (m[3] ? ["E", "B"] : ["G", "D", "A", "E", "B"]).indexOf(m[1]) >= 0;
+    return NOTES_FLAT[(noteIndex(m[1], m[2]) + semitones + 120) % 12] + m[3];
   }
   function transposeChordText(text, semitones, preferSharps) {
     text = String(text || "");
@@ -437,7 +428,7 @@
     grayHex: grayHex, inkOnGray: inkOnGray, hexRgb: hexRgb,
     rhythmTokens: rhythmTokens, rhythmSVG: rhythmSVG, parseRhythmLine: parseRhythmLine,
     transposeChord: transposeChord, transposeKey: transposeKey,
-    keyPrefersSharps: keyPrefersSharps, transposeChordText: transposeChordText,
+    transposeChordText: transposeChordText,
     todayISO: todayISO, emptySong: emptySong, emptyState: emptyState
   };
 

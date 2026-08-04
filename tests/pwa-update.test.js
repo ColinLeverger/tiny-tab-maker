@@ -38,3 +38,34 @@ test("one update request waits for activation and reloads", async () => {
   assert.equal(await context.window.TTMUpdate(), "reloading");
   assert.equal(reloads, 1);
 });
+
+test("service worker installs a fresh shell under canonical URLs", async () => {
+  const script = fs.readFileSync("sw.js", "utf8");
+  const handlers = {}, fetched = [], cached = [];
+  const context = {
+    URL, Promise, encodeURIComponent,
+    self: {
+      addEventListener(type, fn) { handlers[type] = fn; },
+      skipWaiting() { return Promise.resolve(); },
+      clients: { claim() { return Promise.resolve(); } }
+    },
+    fetch(url, options) {
+      fetched.push([url, options]);
+      return Promise.resolve({ ok: true });
+    },
+    caches: {
+      open() { return Promise.resolve({ put(url) { cached.push(url); return Promise.resolve(); } }); },
+      keys() { return Promise.resolve([]); },
+      match() { return Promise.resolve(); },
+      delete() { return Promise.resolve(); }
+    }
+  };
+  vm.runInNewContext(script, context);
+  let installed;
+  handlers.install({ waitUntil(promise) { installed = promise; } });
+  await installed;
+
+  assert.ok(fetched.length > 0);
+  assert.ok(fetched.every(([url, options]) => url.includes("?v=ttm-dev-emoji-pdf") && options.cache === "no-store"));
+  assert.deepEqual(cached, ["./", "index.html", "tap.html", "css/styles.css", "js/data.js", "js/demo-data.js", "js/render.js", "js/pdf.js", "js/github-sync.js", "js/app.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"]);
+});

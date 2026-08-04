@@ -28,7 +28,15 @@ var SHELL = [
 
 self.addEventListener("install", function (e) {
   e.waitUntil(
-    caches.open(VERSION).then(function (c) { return c.addAll(SHELL); })
+    caches.open(VERSION).then(function (c) {
+      return Promise.all(SHELL.map(function (url) {
+        var fresh = url + (url.indexOf("?") < 0 ? "?" : "&") + "v=" + encodeURIComponent(VERSION);
+        return fetch(fresh, { cache: "no-store" }).then(function (res) {
+          if (!res.ok) throw new Error("Could not cache " + url);
+          return c.put(url, res);
+        });
+      }));
+    })
       .then(function () { return self.skipWaiting(); })
   );
 });

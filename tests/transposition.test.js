@@ -4,12 +4,11 @@ const assert = require("assert");
 const FG = require("../js/data.js");
 
 assert.strictEqual(FG.transposeChord("Bbmaj7", 2, false), "Cmaj7");
-assert.strictEqual(FG.transposeChord("D/F#", 2, true), "E/G#");
-assert.strictEqual(FG.transposeKey("Em", 2), "F#m");
-assert.strictEqual(FG.keyPrefersSharps("F#m"), true);
+assert.strictEqual(FG.transposeChord("D/F#", 2, false), "E/Ab");
+assert.strictEqual(FG.transposeKey("Em", 2), "Gbm");
 assert.strictEqual(
-  FG.transposeChordText("follows the verse (Em G D C), play softly", 2, true),
-  "follows the verse (F#m A E D), play softly"
+  FG.transposeChordText("follows the verse (Em G D C), play softly", 2, false),
+  "follows the verse (Gbm A E D), play softly"
 );
 assert.strictEqual(FG.transposeChordText("Am (funk, palm mute)", 1, false), "Bbm (funk, palm mute)");
 assert.strictEqual(FG.transposeChordText("G — grid below", 1, false), "Ab — grid below");

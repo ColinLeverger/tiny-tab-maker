@@ -395,9 +395,8 @@
   function transposeSong(si, semitones) {
     var s = STATE.songs[si]; if (!s) return;
     var key = FG.transposeKey(s.key, semitones);
-    var sharps = FG.keyPrefersSharps(key);
     var rows = (s.chords || []).map(function (c) {
-      return { chord: c, value: FG.transposeChordText(c.value, semitones, sharps) };
+      return { chord: c, value: FG.transposeChordText(c.value, semitones, false) };
     }).filter(function (r) { return r.value !== r.chord.value; });
     if (key === s.key && !rows.length) { alert("No unambiguous chords found. Free text was left untouched."); return; }
     var lines = ['Transpose “' + (s.title || "Untitled") + '” ' + (semitones > 0 ? "+" : "") + semitones + ' semitone?'];
@@ -561,9 +560,8 @@
     else if (b.hasAttribute("data-cp-text")) { cpInsert(b.getAttribute("data-cp-text")); return; }
     else if (b.hasAttribute("data-cp-step")) {
       var content = CP.input.value;
-      var song = STATE.songs[+CP.input.getAttribute("data-song")];
       var step = +b.getAttribute("data-cp-step");
-      var changed = FG.transposeChordText(content, step, FG.keyPrefersSharps(FG.transposeKey(song && song.key, step)));
+      var changed = FG.transposeChordText(content, step, false);
       if (changed === content) { alert("No unambiguous chords found. Free text was left untouched."); return; }
       cpInsert(changed, 0, content.length); return;
     }
