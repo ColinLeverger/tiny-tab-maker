@@ -486,9 +486,10 @@
     var edit = $("#cpText");
     edit.value = CP.input.value;
     edit.setSelectionRange(CP.at, CP.at);
-    var start = Math.max(0, CP.at - 50), end = Math.min(edit.value.length, CP.at + 70);
-    $("#cpBefore").textContent = (start ? "…" : "") + edit.value.slice(start, CP.at);
-    $("#cpAfter").textContent = edit.value.slice(CP.at, end) + (end < edit.value.length ? "…" : "");
+    $("#cpBefore").textContent = edit.value.slice(0, CP.at);
+    $("#cpAfter").textContent = edit.value.slice(CP.at);
+    var marker = $("#cpMarker"), caret = $(".cp-caret", marker);
+    marker.scrollTop = Math.max(0, caret.offsetTop - marker.clientHeight / 2);
     $$("#chordPadModal [data-cp-root]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-root") === CP.root); });
     $$("#chordPadModal [data-cp-acc]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-acc") === CP.acc); });
     $$("#chordPadModal [data-cp-suffix]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cp-suffix") === CP.suffix); });
@@ -499,8 +500,9 @@
     var scrollY = root.pageYOffset || 0;
     CP = { input: input, at: at, root: "C", acc: "", suffix: "", changed: false, scrollY: scrollY };
     document.body.style.top = -scrollY + "px";
-    input.blur(); cpDraw(); $("#chordPadModal").classList.add("open");
+    input.blur(); $("#chordPadModal").classList.add("open");
     document.documentElement.classList.add("cp-open"); document.body.classList.add("cp-open");
+    cpDraw();
   }
   function closeChordPad() {
     var scrollY = CP && CP.scrollY;
@@ -549,6 +551,7 @@
     CP.input.dispatchEvent(new Event("input", { bubbles: true }));
   });
   $("#cpText").addEventListener("blur", function () { if (CP) { CP.at = this.selectionStart; cpDraw(); } });
+  $("#cpMarker").addEventListener("click", focusChordText);
   $("#cpKeyboard").addEventListener("click", focusChordText);
 
   /* =====================================================================
