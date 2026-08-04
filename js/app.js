@@ -496,14 +496,19 @@
   function openChordPad(input) {
     if (!input) return;
     var at = lastChordField === input && input.selectionStart != null ? input.selectionStart : input.value.length;
-    CP = { input: input, at: at, root: "C", acc: "", suffix: "", changed: false };
+    var scrollY = root.pageYOffset || 0;
+    CP = { input: input, at: at, root: "C", acc: "", suffix: "", changed: false, scrollY: scrollY };
+    document.body.style.top = -scrollY + "px";
     input.blur(); cpDraw(); $("#chordPadModal").classList.add("open");
     document.documentElement.classList.add("cp-open"); document.body.classList.add("cp-open");
   }
   function closeChordPad() {
+    var scrollY = CP && CP.scrollY;
     $("#chordPadModal").classList.remove("open");
     document.documentElement.classList.remove("cp-open"); document.body.classList.remove("cp-open");
+    document.body.style.top = "";
     CP = null;
+    if (scrollY) root.scrollTo(0, scrollY);
   }
   function focusChordText() {
     if (!CP) return;
