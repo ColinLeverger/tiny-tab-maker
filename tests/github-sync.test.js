@@ -6,7 +6,12 @@ global.localStorage = {
   setItem(k, v) { this.data[k] = String(v); },
   removeItem(k) { delete this.data[k]; }
 };
-global.addEventListener = function () {};
+const rootEvents = {}, documentEvents = {};
+global.addEventListener = function (name, fn) { rootEvents[name] = fn; };
+global.document = {
+  hidden: false,
+  addEventListener(name, fn) { documentEvents[name] = fn; }
+};
 require("../js/github-sync.js");
 
 (async function () {
@@ -79,5 +84,19 @@ require("../js/github-sync.js");
   await sync.syncNow();
   assert.strictEqual(deleteCalls.length, 2);
   await assert.rejects(sync.remove(), /Connect a GitHub songbook first/);
+
+  let keptAlive = false;
+  sync.start();
+  assert.strictEqual(typeof rootEvents.pagehide, "function");
+  sync.configure({ repo: "owner/private-data", branch: "main", path: "songbooks/next.json", token: "token" });
+  state = { meta: {}, songs: [{ title: "New edit" }] }; sync.changed();
+  global.fetch = async function (_url, options) {
+    keptAlive = options.keepalive;
+    return { status: 200, ok: true, json: async () => ({ content: { sha: "flushed-sha" } }) };
+  };
+  global.document.hidden = true;
+  await documentEvents.visibilitychange();
+  assert.strictEqual(keptAlive, true);
+  assert.strictEqual(sync.config().dirty, false);
   console.log("github-sync: ok");
 })().catch(error => { console.error(error); process.exitCode = 1; });

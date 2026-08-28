@@ -58,13 +58,13 @@
     var lastSeen = JSON.stringify(options.getState());
     function status(kind, text) { if (options.onStatus) options.onStatus(kind, text); }
     function save() { if (config) writeConfig(config); }
-    async function request(method, body, path) {
+    async function request(method, body, path, keepalive) {
       var url = apiUrl(config, path) + (method === "GET" ? "?ref=" + encodeURIComponent(config.branch) : "");
       var response = await root.fetch(url, {
         method: method,
         headers: Object.assign(authHeaders(config), body ? { "Content-Type": "application/json" } : {}),
         body: body ? JSON.stringify(body) : undefined,
-        cache: "no-store"
+        cache: "no-store", keepalive: !!keepalive
       });
       if (response.status === 404) return null;
       var data = await response.json().catch(function () { return {}; });
@@ -82,11 +82,11 @@
       if (!state || !Array.isArray(state.songs)) throw new Error("The GitHub file is not a Tiny Tab Maker songbook.");
       return { sha: file.sha, state: state };
     }
-    async function put(raw, sha) {
+    async function put(raw, sha, keepalive) {
       if (raw.length > 900000) throw new Error("Songbook is too large for GitHub file sync.");
       var body = { message: "Sync Tiny Tab Maker", content: encode(raw), branch: config.branch };
       if (sha) body.sha = sha;
-      var result = await request("PUT", body);
+      var result = await request("PUT", body, null, keepalive && JSON.stringify(body).length < 60000);
       return result.content.sha;
     }
     function fail(error) {
@@ -119,15 +119,15 @@
       } catch (error) { applying = false; return fail(error); }
       finally { busy = false; }
     }
-    async function push(force) {
+    async function push(force, keepalive) {
       if (!config || busy) return;
       if (!config.path) { status("idle", "GitHub connected — choose a songbook"); return; }
-      busy = true; status("syncing", "Saving to GitHub…");
+      clearTimeout(timer); busy = true; status("syncing", "Saving to GitHub…");
       try {
         var sha = config.sha;
         if (force) { var cloud = await remote(); sha = cloud && cloud.sha; }
         var raw = JSON.stringify(options.getState());
-        config.sha = await put(raw, sha);
+        config.sha = await put(raw, sha, keepalive);
         lastSeen = JSON.stringify(options.getState());
         config.dirty = lastSeen !== raw;
         save(); status("ok", "Saved to GitHub");
@@ -219,12 +219,17 @@
     function disconnect() { clearTimeout(timer); config = null; writeConfig(null); status("off", "Sync off"); }
     function start() {
       started = true;
+      function flush() { if (config && config.path && config.dirty) return push(false, true).catch(function () {}); }
+      root.addEventListener("online", function () { syncNow().catch(function () {}); });
+      root.addEventListener("focus", function () { if (config && config.path && !config.dirty) pull(false, false).catch(function () {}); });
+      root.addEventListener("pagehide", flush);
+      if (root.document) root.document.addEventListener("visibilitychange", function () {
+        if (root.document.hidden) return flush();
+      });
       if (!config) { status("off", "Sync off"); return; }
       if (!config.path) { status("idle", "GitHub connected — choose a songbook"); return; }
       status(config.dirty ? "dirty" : "ok", config.dirty ? "Waiting to sync" : "Sync ready");
       setTimeout(function () { syncNow().catch(function () {}); }, 800);
-      root.addEventListener("online", function () { syncNow().catch(function () {}); });
-      root.addEventListener("focus", function () { if (!config.dirty) pull(false, false).catch(function () {}); });
     }
     return {
       config: function () { return config ? Object.assign({}, config) : null; },

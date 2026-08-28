@@ -198,8 +198,9 @@ file without touching the other books. Connected songbooks can be renamed or
 permanently deleted from GitHub; deletion keeps the local copy and repository
 connection, while automatic sync pauses until another songbook is chosen.
 
-Local edits save immediately and sync after 30 seconds of inactivity. The app
-also checks GitHub on startup, focus, reconnect, or *Data → Check & sync now*. GitHub's
+Local edits save immediately and sync after 30 seconds of inactivity or when
+the tab is left/closed. The app checks GitHub on startup, focus, or reconnect;
+**Retry automatic sync** in sync settings is the manual fallback. GitHub's
 file SHA prevents silent overwrites: when two devices edit independently the
 badge shows **Conflict**, and sync settings let you explicitly choose **Use GitHub
 copy** or **Use this device copy**. Downloading is added to Undo history.

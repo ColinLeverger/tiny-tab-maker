@@ -1209,7 +1209,6 @@
       link.href = url; link.download = "songbook-data.json"; link.click();
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     } else if (a === "share") { copyShare(null); }
-    else if (a === "sync") { runSync(); }
     else if (a === "sync-settings") { openSyncSettings(); }
     else if (a === "update") { checkUpdate(); }
     else if (a === "export-memos") { exportWithMemos(); }
@@ -1286,10 +1285,6 @@
       repo: $("#syncRepo").value, branch: $("#syncBranch").value,
       path: path || $("#syncPath").value, token: $("#syncToken").value
     };
-  }
-  function runSync() {
-    if (gitSync && gitSync.configured() && gitSync.config().path) gitSync.syncNow().catch(function () {});
-    else openSyncSettings();
   }
   var syncQrTimer;
   var syncScanStream = null, syncScanFrame = null, syncScanRun = 0, syncScanCanvas = document.createElement("canvas");
@@ -1369,7 +1364,7 @@
   }
   function closeSyncSettings() { stopSyncScan(); $("#syncModal").classList.remove("open"); }
   function setSyncFileActions(enabled) {
-    ["syncRename", "syncDelete", "syncPull", "syncPush"].forEach(function (id) { $("#" + id).disabled = !enabled; });
+    ["syncRename", "syncDelete", "syncRetry", "syncPull", "syncPush"].forEach(function (id) { $("#" + id).disabled = !enabled; });
   }
   function configureSync() {
     gitSync.configure(syncForm());
@@ -1457,6 +1452,9 @@
     })
       .catch(function (error) { syncStatus("error", error.message); })
       .finally(function () { button.disabled = false; });
+  });
+  $("#syncRetry").addEventListener("click", function () {
+    gitSync.syncNow().catch(function () {});
   });
   $("#syncPull").addEventListener("click", function () {
     if (!confirm("Use the GitHub copy on this device?\n\nThis replaces the local songbook. Your current local copy remains available through Undo.")) return;

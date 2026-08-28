@@ -53,7 +53,6 @@
   <div class="menu">
     <button class="btn ghost" id="dataBtn">Data ▾</button>
     <div class="menu-pop" id="dataMenu">
-      <button data-act="sync" title="Uploads waiting edits; otherwise checks GitHub for a newer copy. Conflicts are never overwritten automatically.">☁ Check &amp; sync now <span id="syncBadge" class="app-version">Off</span></button>
       <button data-act="sync-settings">☁ Songbooks &amp; sync settings…</button>
       <button data-act="import">📂 Import JSON…</button>
       <button data-act="export">💾 Export JSON</button>
@@ -305,8 +304,8 @@
   <div class="bsheet sync-sheet">
     <div class="bs-head"><h3>☁ Songbooks &amp; GitHub sync</h3><button class="btn sm" id="syncClose">✕</button></div>
     <div class="sync-explain"><b>How it works</b><br>
-      Every edit is saved on this device immediately. Once connected, edits upload to GitHub after 30 seconds.
-      <b>Check &amp; sync now</b> uploads waiting edits, or checks GitHub for a newer copy. If both copies changed, nothing is overwritten—you choose which copy wins below.
+      Every edit is saved on this device immediately. Once connected, edits upload to GitHub after 30 seconds or when you leave/close the tab.
+      Opening or returning to the app checks GitHub for a newer copy. If both copies changed, nothing is overwritten—you choose which copy wins below.
     </div>
     <p class="sync-help">Connection: use a private repository initialized with a README and a fine-grained token limited to that repository with <b>Contents: read/write</b>.</p>
     <div class="sync-grid">
@@ -336,6 +335,7 @@
     <p class="sync-help sync-direction">Need to resolve a conflict? <b>Use GitHub copy</b> replaces this device. <b>Use this device copy</b> replaces GitHub. Connection settings are saved when you choose either direction.</p>
     <div class="bs-actions sync-actions">
       <button class="btn danger" id="syncDisconnect">Disconnect (keep local)</button>
+      <button class="btn" id="syncRetry">↻ Retry automatic sync</button>
       <button class="btn" id="syncPull">⬇ Use GitHub copy</button>
       <button class="btn primary" id="syncPush">⬆ Use this device copy</button>
     </div>
