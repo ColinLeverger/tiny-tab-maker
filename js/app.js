@@ -586,8 +586,9 @@
   });
   $("#cpInsert").addEventListener("click", function () {
     if (!CP) return;
-    var space = /\s/.test(CP.input.value.charAt(CP.end)) ? "" : " ";
-    cpInsert(CP.root + CP.acc + CP.suffix + space);
+    var before = CP.at && !/\s/.test(CP.input.value.charAt(CP.at - 1)) ? " " : "";
+    var after = /\s/.test(CP.input.value.charAt(CP.end)) ? "" : " ";
+    cpInsert(before + CP.root + CP.acc + CP.suffix + after);
   });
   $("#cpClose").addEventListener("click", closeChordPad);
   $("#cpText").addEventListener("input", function () {
