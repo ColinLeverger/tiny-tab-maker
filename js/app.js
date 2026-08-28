@@ -537,6 +537,7 @@
     input.blur(); $("#chordPadModal").classList.add("open");
     document.documentElement.classList.add("cp-open"); document.body.classList.add("cp-open");
     cpDraw();
+    if (root.innerWidth > 820) focusChordText();
   }
   function closeChordPad() {
     var scrollY = CP && CP.scrollY;
@@ -563,6 +564,7 @@
     input.setSelectionRange(CP.at, CP.at);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     cpDraw();
+    if (root.innerWidth > 820) focusChordText();
   }
   $("#chordPadModal").addEventListener("click", function (e) {
     if (e.target === this) { closeChordPad(); return; }
@@ -580,8 +582,13 @@
     }
     else return;
     cpDraw();
+    if (root.innerWidth > 820) focusChordText();
   });
-  $("#cpInsert").addEventListener("click", function () { if (CP) cpInsert(CP.root + CP.acc + CP.suffix); });
+  $("#cpInsert").addEventListener("click", function () {
+    if (!CP) return;
+    var space = /\s/.test(CP.input.value.charAt(CP.end)) ? "" : " ";
+    cpInsert(CP.root + CP.acc + CP.suffix + space);
+  });
   $("#cpClose").addEventListener("click", closeChordPad);
   $("#cpText").addEventListener("input", function () {
     if (!CP) return;
