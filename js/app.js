@@ -471,7 +471,7 @@
       renderEditor();
       var vi = opening ? bookToView(+tog) : -1;
       var sheet = vi >= 0 ? $$("#preview .sheet.songsheet")[vi] : null;
-      if (sheet && sheet.scrollIntoView) sheet.scrollIntoView({ block: "start", behavior: "smooth" });
+      if (root.matchMedia("(min-width:881px)").matches && sheet && sheet.scrollIntoView) sheet.scrollIntoView({ block: "start", behavior: "smooth" });
       return;
     }
     var act = btn.getAttribute("data-act");
