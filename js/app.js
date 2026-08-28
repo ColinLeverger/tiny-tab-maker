@@ -17,7 +17,7 @@
 
   var RESTORED = false;
   var STATE = load();
-  var UI = { bw: false, compact: false, chordPt: 18, openSong: null, allSets: false, gig: false };
+  var UI = { bw: false, compact: false, chordPt: 18, openSong: null, allSets: false, gig: false, hideTabs: false };
 
   // view prefs (compact / B&W / size) persist too, so the preview is correct at
   // page load without having to re-toggle anything.
@@ -29,11 +29,12 @@
       if (typeof u.compact === "boolean") UI.compact = u.compact;
       if (typeof u.allSets === "boolean") UI.allSets = u.allSets;
       if (typeof u.gig === "boolean") UI.gig = u.gig;
+      if (typeof u.hideTabs === "boolean") UI.hideTabs = u.hideTabs;
       if (u.chordPt) UI.chordPt = +u.chordPt || UI.chordPt;
     } catch (e) {}
   })();
   function persistUI() {
-    try { localStorage.setItem(UI_KEY, JSON.stringify({ bw: UI.bw, compact: UI.compact, chordPt: UI.chordPt, allSets: UI.allSets, gig: UI.gig })); } catch (e) {}
+    try { localStorage.setItem(UI_KEY, JSON.stringify({ bw: UI.bw, compact: UI.compact, chordPt: UI.chordPt, allSets: UI.allSets, gig: UI.gig, hideTabs: UI.hideTabs })); } catch (e) {}
   }
 
   // ---- auto "last updated": stamp today on the first change of the session ----
@@ -1632,21 +1633,30 @@
     if (document.visibilityState === "visible") applyWake();
   });
 
-  /* ---- gig night mode: dark inverted sheet, chords only ---- */
-  function applyGig() {
+  /* ---- independent View preferences: night palette and tab visibility ---- */
+  function applyStagePrefs() {
     document.body.classList.toggle("gig", !!UI.gig && document.body.classList.contains("stage"));
-    var b = $("#stageGig"); if (b) b.classList.toggle("on", !!UI.gig);
+    document.body.classList.toggle("hide-tabs", !!UI.hideTabs && document.body.classList.contains("stage"));
+    var b = $("#stageGig"); if (b) { b.classList.toggle("on", !!UI.gig); b.setAttribute("aria-pressed", !!UI.gig); }
+    var t = $("#stageTabs"); if (t) {
+      t.classList.toggle("on", !!UI.hideTabs); t.setAttribute("aria-pressed", !!UI.hideTabs);
+      t.title = UI.hideTabs ? "Show guitar tabs" : "Hide guitar tabs";
+    }
     if (document.body.classList.contains("stage")) renderStageCurrent(); // heights change
   }
   var stageGigBtn = $("#stageGig");
   if (stageGigBtn) stageGigBtn.addEventListener("click", function () {
-    UI.gig = !UI.gig; persistUI(); applyGig();
+    UI.gig = !UI.gig; persistUI(); applyStagePrefs();
+  });
+  var stageTabsBtn = $("#stageTabs");
+  if (stageTabsBtn) stageTabsBtn.addEventListener("click", function () {
+    UI.hideTabs = !UI.hideTabs; persistUI(); applyStagePrefs();
   });
 
   function enterStage() {
     document.body.classList.add("stage");
     applyWake();          // inside the View-button click: user activation is fresh
-    applyGig();
+    applyStagePrefs();
     var sh = stageSheets();
     if (stageIdx <= 0) {                             // first entry: jump to the first song
       var fi = sh.findIndex(function (s) { return s.classList.contains("songsheet"); });
@@ -1659,6 +1669,7 @@
     document.body.classList.remove("stage");
     document.body.classList.remove("stage-portrait");
     document.body.classList.remove("gig");
+    document.body.classList.remove("hide-tabs");
     applyWake();          // stage class is gone -> releases the screen lock
     $$("#preview .sheet").forEach(function (s) {
       s.classList.remove("stage-current");

@@ -550,14 +550,13 @@ body.stage.stage-portrait .sheet.stage-current{padding:6mm 4mm}
 body.stage.stage-portrait .sheet.stage-current .songsheet-head{flex-wrap:wrap}
 body.stage.stage-portrait .sheet.stage-current .fh-meta{margin-left:0}
 
-/* ---- GIG NIGHT MODE: dark venue, chords only, big ---- */
+/* ---- GIG NIGHT MODE: dark venue ---- */
 body.stage.gig .preview-wrap{background:#07090d}
 /* invert+rotate ≈ keeps hues, flips luminance: white page -> near-black */
 body.stage.gig .sheet.stage-current{filter:invert(.93) hue-rotate(180deg);box-shadow:none}
-body.stage.gig pre.tab,body.stage.gig .kv,body.stage.gig .rehearsal{display:none}
-body.stage.gig .tab-head{opacity:.75;font-size:.75rem}  /* stays tappable -> tab zoom */
 body.stage.gig .chords td.cv{font-size:calc(var(--fs,12pt) * 0.95);font-weight:700}
 body.stage.gig .chords td.cl{font-size:calc(var(--fs,12pt) * 0.75)}
+body.stage.hide-tabs pre.tab{display:none}
 .stage-nav .btn.nav.on{background:var(--accent)}
 
 /* floating navigation pill */
@@ -580,9 +579,9 @@ body.stage .stage-nav{display:flex;gap:.4rem;align-items:center;
    ✕ Edit was overflowing). Full-width bar, label shrinks, buttons stay. */
 @media(max-width:560px){
   body.stage .stage-nav{left:8px;right:8px;transform:none;max-width:none;
-    justify-content:space-between}
+    justify-content:space-between;gap:.2rem}
   .stage-label{width:auto;flex:1 1 auto;min-width:0}
-  .stage-nav .btn.nav{padding:.55rem .6rem;flex:0 0 auto}
+  .stage-nav .btn.nav{padding:.55rem .4rem;font-size:.9rem;flex:0 0 auto}
 }
 
 /* small screens: make the fixed-A4 preview fluid so phones/tablets can read it */
