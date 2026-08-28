@@ -76,7 +76,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .ed-head h2{margin:0;flex:1}
 
 /* view scope: topbar switcher + editor hint + per-card badges */
-.scope-sel{max-width:200px;padding:.35rem .4rem;border-radius:7px;border:1px solid rgba(255,255,255,.35);
+.scope-sel{max-width:min(38vw,460px);padding:.35rem .4rem;border-radius:7px;border:1px solid rgba(255,255,255,.35);
+  text-overflow:ellipsis;
   background:transparent;color:#fff;font-size:.85rem}
 .scope-sel option{color:var(--ink)}
 .scope-sel.scoped{background:var(--accent);border-color:var(--accent-d);font-weight:600}

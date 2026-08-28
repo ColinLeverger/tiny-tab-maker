@@ -365,6 +365,9 @@
             esc(sl.name) + " (" + sl.songs.length + ")</option>";
         }).join("");
       sel.classList.toggle("scoped", !!al);
+      // the topbar can still clip a long setlist name — keep the full one on hover
+      sel.title = "View scope — what the preview, Print and PDF show. Currently: " +
+        (al ? al.name + " (" + al.songs.length + " songs)" : "whole book (" + STATE.songs.length + " songs)");
       sel.style.background = al ? setColor(STATE.activeSet) : "";
       sel.style.borderColor = al ? setColor(STATE.activeSet) : "";
     }
