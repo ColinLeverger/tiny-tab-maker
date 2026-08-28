@@ -554,8 +554,6 @@ body.stage.stage-portrait .sheet.stage-current .fh-meta{margin-left:0}
 body.stage.gig .preview-wrap{background:#07090d}
 /* invert+rotate ≈ keeps hues, flips luminance: white page -> near-black */
 body.stage.gig .sheet.stage-current{filter:invert(.93) hue-rotate(180deg);box-shadow:none}
-body.stage.gig .chords td.cv{font-size:calc(var(--fs,12pt) * 0.95);font-weight:700}
-body.stage.gig .chords td.cl{font-size:calc(var(--fs,12pt) * 0.75)}
 body.stage.hide-tabs pre.tab{display:none}
 .stage-nav .btn.nav.on{background:var(--accent)}
 

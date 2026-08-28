@@ -135,8 +135,8 @@ scales the A4 page to fit one screen. On top of it:
   back to the foreground. Needs iOS 16.4+ / a supporting browser, and iOS
   **Low Power Mode overrides it** whatever the page asks for.
 - **🌙 Gig night mode** (in the View nav, remembered): dark-inverted sheet
-  (hues kept, luminance flipped) with extra-large chords. The separate
-  **TAB** toggle hides guitar tabs in either day or night view; tab titles stay
+  (hues kept, luminance flipped) without changing its layout. The separate
+  **TAB** toggle shows or hides guitar tabs in either view; tab titles stay
   tappable for zoom. Both preferences are remembered.
   Setlists are reachable from the editor too via **☰ Sets** in the top bar
   (tapping a song there opens its card instead of jumping stage view).

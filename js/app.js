@@ -1639,7 +1639,7 @@
     document.body.classList.toggle("hide-tabs", !!UI.hideTabs && document.body.classList.contains("stage"));
     var b = $("#stageGig"); if (b) { b.classList.toggle("on", !!UI.gig); b.setAttribute("aria-pressed", !!UI.gig); }
     var t = $("#stageTabs"); if (t) {
-      t.classList.toggle("on", !!UI.hideTabs); t.setAttribute("aria-pressed", !!UI.hideTabs);
+      t.classList.toggle("on", !UI.hideTabs); t.setAttribute("aria-pressed", !UI.hideTabs);
       t.title = UI.hideTabs ? "Show guitar tabs" : "Hide guitar tabs";
     }
     if (document.body.classList.contains("stage")) renderStageCurrent(); // heights change
