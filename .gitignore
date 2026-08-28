@@ -21,3 +21,7 @@ npm-debug.log*
 legacy-python/demo_sheets*.pdf
 __pycache__/
 *.pyc
+
+# local agent/tooling caches
+.serena/
+.tokensave/

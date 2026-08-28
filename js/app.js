@@ -1251,19 +1251,24 @@
   /* ---------------- GitHub repository sync ---------------- */
   function syncStatus(kind, text) {
     var badge = $("#syncBadge"), state = $("#syncState"), more = $('.mobile-dock [data-mobile="more"]');
-    var labels = { off: "Off", idle: "Connected", dirty: "Unsaved", syncing: "Syncing…", ok: "Ready", conflict: "Conflict", error: "Error" };
+    var sheet = document.querySelector(".sync-sheet");
+    var labels = { off: "Off", idle: "No songbook", dirty: "⬆ Not pushed", syncing: "Syncing…", ok: "✓ On GitHub", conflict: "⚠ Conflict", error: "⚠ Error" };
+    var pending = kind === "dirty" || kind === "syncing", bad = kind === "conflict" || kind === "error";
     [badge, $("#desktopSyncBadge")].forEach(function (item) {
       if (!item) return;
       item.textContent = labels[kind] || kind;
       item.classList.toggle("latest", kind === "ok");
-      item.classList.toggle("stale", kind === "conflict" || kind === "error");
+      item.classList.toggle("pending", pending);
+      item.classList.toggle("stale", bad);
       item.title = text || "";
     });
     if (state) {
       state.textContent = text || labels[kind] || "";
       state.classList.toggle("ok", kind === "ok");
-      state.classList.toggle("warn", kind === "conflict" || kind === "error");
+      state.classList.toggle("warn", bad);
     }
+    if (sheet) sheet.classList.toggle("has-conflict", bad);
+    syncSummary();
     if (more) {
       more.classList.remove("sync-ok", "sync-pending", "sync-warn");
       if (kind === "ok") more.classList.add("sync-ok");
@@ -1273,6 +1278,11 @@
     }
     if (kind === "conflict" || kind === "error") setStatus("⚠︎ " + text, true);
     else if (kind === "ok") setStatus("☁ " + text);
+  }
+  function syncSummary() {
+    var line = $("#syncSummary"); if (!line) return;
+    var repo = $("#syncRepo").value.trim(), branch = $("#syncBranch").value.trim() || "main", path = $("#syncPath").value.trim();
+    line.textContent = repo ? repo + " · " + branch + (path ? " · " + path : "") : "Not connected to a repository yet.";
   }
   function suggestedSyncPath(name) {
     var label = (name || (STATE.meta && (STATE.meta.band || STATE.meta.subtitle)) || "my-songbook").replace(/\.json$/i, "");
@@ -1311,6 +1321,8 @@
     $("#syncPath").value = config.path || "";
     $("#syncToken").value = config.token || "";
     setSyncFileActions(!transferred && !!config.path);
+    $("#syncConn").open = !config.repo || !config.token || !config.path;
+    syncSummary();
     $("#syncRemote").innerHTML = '<option value="">Refresh to list songbooks…</option>';
     $("#syncLoad").disabled = true;
     if ($("#mobileMoreModal").classList.contains("open")) $("#mobileMoreClose").click();
@@ -1381,7 +1393,6 @@
       var current = $("#syncPath").value;
       if (files.indexOf(current) >= 0) select.value = current;
       load.disabled = !select.value;
-      $("#syncState").textContent = files.length + " songbook" + (files.length === 1 ? "" : "s") + " found";
       return files;
     }).catch(function (error) {
       select.innerHTML = '<option value="">Could not list songbooks</option>';
@@ -1396,9 +1407,12 @@
   document.addEventListener("visibilitychange", function () { if (document.hidden) stopSyncScan(); });
   ["syncRepo", "syncBranch", "syncToken"].forEach(function (id) {
     $("#" + id).addEventListener("input", function () {
+      syncSummary();
       clearTimeout(syncQrTimer); syncQrTimer = setTimeout(drawSyncQr, 200);
     });
   });
+  $("#syncQrBox").addEventListener("toggle", function () { if (this.open) drawSyncQr(); });
+  $("#syncDone").addEventListener("click", closeSyncSettings);
   $("#syncClose").addEventListener("click", closeSyncSettings);
   $("#syncModal").addEventListener("click", function (e) { if (e.target === $("#syncModal")) closeSyncSettings(); });
   $("#syncDisconnect").addEventListener("click", function () {
