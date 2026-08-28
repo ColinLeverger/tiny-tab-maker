@@ -347,9 +347,11 @@
   function viewToBook(vi) { return navSongIdx()[vi]; }
   function bookToView(bi) { return navSongIdx().indexOf(bi); }
 
-  // 6 gig colours, cycled by setlist index (matches the category-ink family)
-  var SET_COLORS = ["#2f5fb3", "#2f8f3f", "#b03a78", "#9a7400", "#6b3fb0", "#1f7a6e"];
-  function setColor(k) { return SET_COLORS[k % SET_COLORS.length]; }
+  // Native book emoji have fixed colours, so use matching swatches for sets.
+  var SET_STYLES = [["🟦", "#2f5fb3"], ["🟩", "#2f8f3f"], ["🟥", "#a83d4c"],
+                    ["🟨", "#9a7400"], ["🟪", "#6b3fb0"], ["🟧", "#b85c1e"]];
+  function setStyle(k) { return SET_STYLES[k % SET_STYLES.length]; }
+  function setColor(k) { return setStyle(k)[1]; }
 
   // topbar scope switcher + editor hint + Generate labels — one glance says
   // exactly what the preview / Print / PDF currently produce.
@@ -359,7 +361,7 @@
     if (sel) {
       sel.innerHTML = '<option value="">📕 Whole book (' + STATE.songs.length + ')</option>' +
         (STATE.setlists || []).map(function (sl, k) {
-          return '<option value="' + k + '"' + (STATE.activeSet === k ? " selected" : "") + ">📗 " +
+          return '<option value="' + k + '"' + (STATE.activeSet === k ? " selected" : "") + ">" + setStyle(k)[0] + " " +
             esc(sl.name) + " (" + sl.songs.length + ")</option>";
         }).join("");
       sel.classList.toggle("scoped", !!al);
@@ -2200,7 +2202,7 @@
     $("#setBar").innerHTML =
       '<select id="setSelect"><option value="">♪ Whole book (' + STATE.songs.length + ')</option>' +
       STATE.setlists.map(function (sl, k) {
-        return '<option value="' + k + '"' + (STATE.activeSet === k ? " selected" : "") + ">" +
+        return '<option value="' + k + '"' + (STATE.activeSet === k ? " selected" : "") + ">" + setStyle(k)[0] + " " +
           esc(sl.name) + " (" + sl.songs.length + ")</option>";
       }).join("") + "</select>" +
       '<button class="btn sm" id="setNew" title="New setlist">＋ New</button>' +
