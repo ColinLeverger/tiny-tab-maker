@@ -153,7 +153,7 @@
     var head = '<div class="songsheet-head"><span class="fh-title">' + songMark +
       '<span class="fh-num">' + esc(s.num) + "</span> — " + esc(s.title).toUpperCase() + "</span>" +
       '<span class="fh-meta">' +
-        [s.key, s.tempo, s.meter || s.feel, s.group].filter(Boolean).map(esc).join(" · ") +
+        [s.key, s.tempo, s.meter, s.feel, s.group].filter(Boolean).map(esc).join(" · ") +
       "</span></div>";
 
     var pills = FG.structurePills(s.structure);

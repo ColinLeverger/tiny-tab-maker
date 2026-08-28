@@ -464,7 +464,15 @@
     if (chordInput) { openChordPad(chordInput); return; }
     var btn = e.target.closest("[data-act],[data-toggle]"); if (!btn) return;
     var tog = btn.getAttribute("data-toggle");
-    if (tog != null) { UI.openSong = (UI.openSong === +tog) ? null : +tog; renderEditor(); return; }
+    if (tog != null) {
+      var opening = UI.openSong !== +tog;
+      UI.openSong = opening ? +tog : null;
+      renderEditor();
+      var vi = opening ? bookToView(+tog) : -1;
+      var sheet = vi >= 0 ? $$("#preview .sheet.songsheet")[vi] : null;
+      if (sheet && sheet.scrollIntoView) sheet.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
     var act = btn.getAttribute("data-act");
     var si = +btn.getAttribute("data-song"); var s = STATE.songs[si];
     if (act !== "editTab" && act !== "chordPad" && act !== "transpose") touchUpdated(); // opening a tool changes nothing
