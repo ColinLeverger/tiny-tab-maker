@@ -195,8 +195,8 @@ always-visible **Songbooks** button opens this library directly. **Refresh list*
 both older root files such as `songbook.json` and newer files under
 `songbooks/`. **Upload this device as a new GitHub songbook** creates a separate
 file without touching the other books. Connected songbooks can be renamed or
-permanently deleted from GitHub; deletion keeps the local copy and disconnects
-sync so the file is not recreated.
+permanently deleted from GitHub; deletion keeps the local copy and repository
+connection, while automatic sync pauses until another songbook is chosen.
 
 Local edits save immediately and sync after 30 seconds of inactivity. The app
 also checks GitHub on startup, focus, reconnect, or *Data → Check & sync now*. GitHub's

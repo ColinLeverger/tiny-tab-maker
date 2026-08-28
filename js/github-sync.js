@@ -96,6 +96,7 @@
     }
     async function pull(force, createMissing) {
       if (!config || busy) return;
+      if (!config.path) { status("idle", "GitHub connected — choose a songbook"); return; }
       busy = true; status("syncing", "Checking GitHub…");
       try {
         var cloud = await remote();
@@ -120,6 +121,7 @@
     }
     async function push(force) {
       if (!config || busy) return;
+      if (!config.path) { status("idle", "GitHub connected — choose a songbook"); return; }
       busy = true; status("syncing", "Saving to GitHub…");
       try {
         var sha = config.sha;
@@ -138,7 +140,7 @@
       timer = setTimeout(function () { push(false).catch(function () {}); }, 30000);
     }
     function changed() {
-      if (!started || applying || !config) return;
+      if (!started || applying || !config || !config.path) return;
       var current = JSON.stringify(options.getState());
       if (current === lastSeen) return;
       lastSeen = current;
@@ -146,6 +148,7 @@
     }
     function syncNow() {
       if (!config) return Promise.resolve("unconfigured");
+      if (!config.path) { status("idle", "GitHub connected — choose a songbook"); return Promise.resolve("unselected"); }
       return config.dirty ? push(false) : pull(false, false);
     }
     async function listFiles(settings) {
@@ -187,7 +190,7 @@
       finally { busy = false; }
     }
     async function remove() {
-      if (!config) throw new Error("Connect a GitHub songbook first.");
+      if (!config || !config.path) throw new Error("Connect a GitHub songbook first.");
       if (busy) throw new Error("Wait for the current GitHub sync to finish, then delete again.");
       busy = true; clearTimeout(timer); status("syncing", "Deleting GitHub songbook…");
       try {
@@ -196,8 +199,10 @@
         await request("DELETE", {
           message: "Delete Tiny Tab Maker songbook", sha: file.sha, branch: config.branch
         });
-        config = null; writeConfig(null);
-        status("off", 'Deleted "' + path + '" from GitHub — this device keeps its local copy');
+        config.path = ""; config.sha = null; config.dirty = false;
+        lastSeen = JSON.stringify(options.getState()); save();
+        status("idle", 'Deleted "' + path + '" — GitHub stays connected; choose another songbook');
+        return path;
       } catch (error) { return fail(error); }
       finally { busy = false; }
     }
@@ -215,6 +220,7 @@
     function start() {
       started = true;
       if (!config) { status("off", "Sync off"); return; }
+      if (!config.path) { status("idle", "GitHub connected — choose a songbook"); return; }
       status(config.dirty ? "dirty" : "ok", config.dirty ? "Waiting to sync" : "Sync ready");
       setTimeout(function () { syncNow().catch(function () {}); }, 800);
       root.addEventListener("online", function () { syncNow().catch(function () {}); });

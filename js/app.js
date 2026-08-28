@@ -1252,7 +1252,7 @@
   /* ---------------- GitHub repository sync ---------------- */
   function syncStatus(kind, text) {
     var badge = $("#syncBadge"), state = $("#syncState"), more = $('.mobile-dock [data-mobile="more"]');
-    var labels = { off: "Off", dirty: "Unsaved", syncing: "Syncing…", ok: "Ready", conflict: "Conflict", error: "Error" };
+    var labels = { off: "Off", idle: "Connected", dirty: "Unsaved", syncing: "Syncing…", ok: "Ready", conflict: "Conflict", error: "Error" };
     [badge, $("#desktopSyncBadge")].forEach(function (item) {
       if (!item) return;
       item.textContent = labels[kind] || kind;
@@ -1288,7 +1288,7 @@
     };
   }
   function runSync() {
-    if (gitSync && gitSync.configured()) gitSync.syncNow().catch(function () {});
+    if (gitSync && gitSync.configured() && gitSync.config().path) gitSync.syncNow().catch(function () {});
     else openSyncSettings();
   }
   var syncQrTimer;
@@ -1313,10 +1313,9 @@
     var config = transferred || gitSync.config() || {};
     $("#syncRepo").value = config.repo || "";
     $("#syncBranch").value = config.branch || "main";
-    $("#syncPath").value = config.path || suggestedSyncPath();
+    $("#syncPath").value = config.path || "";
     $("#syncToken").value = config.token || "";
-    $("#syncRename").disabled = !!transferred || !gitSync.configured();
-    $("#syncDelete").disabled = !!transferred || !gitSync.configured();
+    setSyncFileActions(!transferred && !!config.path);
     $("#syncRemote").innerHTML = '<option value="">Refresh to list songbooks…</option>';
     $("#syncLoad").disabled = true;
     if ($("#mobileMoreModal").classList.contains("open")) $("#mobileMoreClose").click();
@@ -1369,10 +1368,12 @@
     });
   }
   function closeSyncSettings() { stopSyncScan(); $("#syncModal").classList.remove("open"); }
+  function setSyncFileActions(enabled) {
+    ["syncRename", "syncDelete", "syncPull", "syncPush"].forEach(function (id) { $("#" + id).disabled = !enabled; });
+  }
   function configureSync() {
     gitSync.configure(syncForm());
-    $("#syncRename").disabled = false;
-    $("#syncDelete").disabled = false;
+    setSyncFileActions(true);
   }
   function refreshSyncFiles() {
     var select = $("#syncRemote"), button = $("#syncRefresh"), load = $("#syncLoad");
@@ -1446,9 +1447,14 @@
   });
   $("#syncDelete").addEventListener("click", function () {
     var config = gitSync && gitSync.config(); if (!config) return;
-    if (!confirm('Permanently delete "' + config.path + '" from GitHub?\n\nThe songbook stays on this device. Sync will disconnect so the deleted file is not recreated.')) return;
+    if (!confirm('Permanently delete "' + config.path + '" from GitHub?\n\nThe songbook stays on this device, and the GitHub repository stays connected. Automatic sync pauses until you choose another songbook.')) return;
     var button = this; button.disabled = true;
-    gitSync.remove().then(closeSyncSettings)
+    gitSync.remove().then(function (path) {
+      $("#syncPath").value = ""; setSyncFileActions(false);
+      return refreshSyncFiles().then(function () {
+        syncStatus("idle", 'Deleted "' + path + '" — GitHub stays connected; choose another songbook');
+      });
+    })
       .catch(function (error) { syncStatus("error", error.message); })
       .finally(function () { button.disabled = false; });
   });
