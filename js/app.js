@@ -2210,10 +2210,10 @@
   }
 
   /* =====================================================================
-   *  SETLIST OVERLAY — jump / reorder (big ▲▼, no drag) / share.
+   *  SETLIST OVERLAY — jump / reorder (drag or ▲▼) / share.
    * ===================================================================== */
-  function setRow(s, i, btns) {
-    return '<div class="set-row" data-i="' + i + '">' +
+  function setRow(s, i, btns, pos) {
+    return '<div class="set-row" draggable="true" data-i="' + i + '" data-pos="' + (pos == null ? i : pos) + '" title="Drag to reorder">' +
       '<span class="num">' + esc(s.num) + "</span>" +
       '<span class="ttl">' + rhDot(s.rehearsal) + esc(s.title || "(untitled)") + "</span>" +
       btns + "</div>";
@@ -2254,7 +2254,7 @@
         return setRow(shown, i,
           '<button class="btn sm" data-smv="up" data-k="' + k + '" title="Up">▲</button>' +
           '<button class="btn sm" data-smv="down" data-k="' + k + '" title="Down">▼</button>' +
-          '<button class="btn sm danger" data-srem="' + k + '" title="Remove from set">−</button>');
+          '<button class="btn sm danger" data-srem="' + k + '" title="Remove from set">−</button>', k);
       }).join("") || '<div class="empty-hint">Empty set — add songs below.</div>';
       var rest = STATE.songs.filter(function (s) { return !inSet[s.id]; });
       if (rest.length) {
@@ -2317,6 +2317,50 @@
       STATE.activeSet = null;
       renderAll(); drawSetlist();
     }
+  });
+  var SET_DRAG = null;
+  function clearSetDrop() {
+    $$("#setList .drop-before,#setList .drop-after").forEach(function (n) {
+      n.classList.remove("drop-before", "drop-after");
+    });
+  }
+  $("#setList").addEventListener("dragstart", function (e) {
+    var row = e.target.closest && e.target.closest(".set-row:not(.rest)");
+    if (!row) return;
+    SET_DRAG = { from: +row.getAttribute("data-pos"), set: !!activeSetlist() };
+    row.classList.add("dragging");
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", "song"); } catch (_) {}
+    }
+  });
+  $("#setList").addEventListener("dragover", function (e) {
+    if (!SET_DRAG) return;
+    var row = e.target.closest && e.target.closest(".set-row:not(.rest)");
+    if (!row) return;
+    e.preventDefault();
+    clearSetDrop();
+    row.classList.add(isBefore(e, row) ? "drop-before" : "drop-after");
+  });
+  $("#setList").addEventListener("drop", function (e) {
+    if (!SET_DRAG) return;
+    var row = e.target.closest && e.target.closest(".set-row:not(.rest)");
+    if (!row || SET_DRAG.set !== !!activeSetlist()) return;
+    e.preventDefault();
+    var to = +row.getAttribute("data-pos"), before = isBefore(e, row);
+    pushHistory();
+    if (SET_DRAG.set) moveInArray(activeSetlist().songs, SET_DRAG.from, before ? to : to + 1);
+    else {
+      var openObj = UI.openSong != null ? STATE.songs[UI.openSong] : null;
+      moveInArray(STATE.songs, SET_DRAG.from, before ? to : to + 1);
+      UI.openSong = openObj ? STATE.songs.indexOf(openObj) : null;
+      touchUpdated();
+    }
+    SET_DRAG = null; clearSetDrop(); renderAll(); drawSetlist();
+  });
+  $("#setList").addEventListener("dragend", function () {
+    SET_DRAG = null; clearSetDrop();
+    $$("#setList .dragging").forEach(function (n) { n.classList.remove("dragging"); });
   });
   $("#setList").addEventListener("click", function (e) {
     var al = activeSetlist();

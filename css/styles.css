@@ -154,7 +154,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
 .grip{cursor:grab;color:var(--muted);user-select:none;font-size:.95rem;line-height:1;text-align:center;letter-spacing:-1px}
 .grip:hover{color:var(--accent)}
 .grip:active{cursor:grabbing}
-.song-card.dragging,.pair.dragging{opacity:.45}
+.song-card.dragging,.pair.dragging,.set-row.dragging{opacity:.45}
 .song-card.drop-before{box-shadow:0 -3px 0 -1px var(--accent)}
 .song-card.drop-after{box-shadow:0 3px 0 -1px var(--accent)}
 .pair.drop-before{box-shadow:0 -2px 0 0 var(--accent)}
@@ -436,6 +436,9 @@ body.stage pre.tab,body.stage .tab-head{cursor:pointer}
 .set-row{display:flex;align-items:center;gap:.55rem;min-height:48px;padding:.3rem .25rem;
   border-bottom:1px solid var(--line);cursor:pointer}
 .set-row:hover{background:#f6f8fa}
+.set-row[draggable=true]{cursor:grab}
+.set-row.drop-before{box-shadow:0 -3px 0 -1px var(--accent)}
+.set-row.drop-after{box-shadow:0 3px 0 -1px var(--accent)}
 .set-row .num{font-family:var(--mono);font-weight:700;color:var(--accent)}
 .set-row .ttl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .set-row .btn{min-width:44px;min-height:38px}
