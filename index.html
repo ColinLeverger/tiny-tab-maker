@@ -53,7 +53,7 @@
   <div class="menu">
     <button class="btn ghost" id="dataBtn">Data ▾</button>
     <div class="menu-pop" id="dataMenu">
-      <button data-act="sync">☁ Sync now <span id="syncBadge" class="app-version">Off</span></button>
+      <button data-act="sync" title="Uploads waiting edits; otherwise checks GitHub for a newer copy. Conflicts are never overwritten automatically.">☁ Check &amp; sync now <span id="syncBadge" class="app-version">Off</span></button>
       <button data-act="sync-settings">☁ Songbooks &amp; sync settings…</button>
       <button data-act="import">📂 Import JSON…</button>
       <button data-act="export">💾 Export JSON</button>
@@ -303,12 +303,16 @@
 <!-- ===== GITHUB SYNC SETTINGS ===== -->
 <div class="modal-bg bs-bg" id="syncModal">
   <div class="bsheet sync-sheet">
-    <div class="bs-head"><h3>☁ GitHub sync</h3><button class="btn sm" id="syncClose">✕</button></div>
-    <p class="sync-help">Use a private repository initialized with a README and a fine-grained token limited to that repository with <b>Contents: read/write</b>.</p>
+    <div class="bs-head"><h3>☁ Songbooks &amp; GitHub sync</h3><button class="btn sm" id="syncClose">✕</button></div>
+    <div class="sync-explain"><b>How it works</b><br>
+      Every edit is saved on this device immediately. Once connected, edits upload to GitHub after 30 seconds.
+      <b>Check &amp; sync now</b> uploads waiting edits, or checks GitHub for a newer copy. If both copies changed, nothing is overwritten—you choose which copy wins below.
+    </div>
+    <p class="sync-help">Connection: use a private repository initialized with a README and a fine-grained token limited to that repository with <b>Contents: read/write</b>.</p>
     <div class="sync-grid">
       <label>Repository <input id="syncRepo" placeholder="owner/private-repository" autocomplete="off" autocapitalize="none"></label>
       <label>Branch <input id="syncBranch" value="main" autocomplete="off" autocapitalize="none"></label>
-      <label>Current file <input id="syncPath" value="songbooks/my-songbook.json" autocomplete="off" autocapitalize="none"></label>
+      <label>Connected GitHub songbook <input id="syncPath" value="songbooks/my-songbook.json" autocomplete="off" autocapitalize="none" readonly></label>
       <label>Fine-grained token <input id="syncToken" type="password" autocomplete="off" autocapitalize="none"></label>
     </div>
     <div class="sync-transfer">
@@ -316,22 +320,24 @@
       <div><b>Set up your iPhone</b><br>In the iPhone app, open Songbooks and tap <b>Scan laptop QR</b> to prefill the repository and token.<br><small>⚠ Treat this QR code like the token itself. Do not share it.</small></div>
     </div>
     <div class="sync-library">
-      <label for="syncRemote">Load a songbook from GitHub</label>
+      <label for="syncRemote">Songbooks already on GitHub</label>
       <button class="btn primary" id="syncScan">📷 Scan laptop QR</button>
       <div class="sync-picker">
         <select id="syncRemote"><option value="">Refresh to list songbooks…</option></select>
-        <button class="btn" id="syncRefresh">↻ List</button>
-        <button class="btn primary" id="syncLoad" disabled>Load</button>
+        <button class="btn" id="syncRefresh">↻ Refresh list</button>
+        <button class="btn primary" id="syncLoad" disabled>⬇ Download &amp; open</button>
       </div>
-      <button class="btn sm" id="syncNew">＋ Choose a new songbook filename</button>
-      <button class="btn sm" id="syncRename">✎ Rename current GitHub songbook</button>
+      <button class="btn sm" id="syncNew">＋ Upload this device as a new GitHub songbook…</button>
+      <button class="btn sm" id="syncRename">✎ Rename connected GitHub songbook…</button>
+      <button class="btn sm danger" id="syncDelete">🗑 Delete connected GitHub songbook…</button>
     </div>
     <p class="sync-help"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">Create a fine-grained token on GitHub ↗</a>. It stays in this browser and should access only the data repository.</p>
     <div id="syncState" class="sync-state">Sync off</div>
+    <p class="sync-help sync-direction">Need to resolve a conflict? <b>Use GitHub copy</b> replaces this device. <b>Use this device copy</b> replaces GitHub. Connection settings are saved when you choose either direction.</p>
     <div class="bs-actions sync-actions">
-      <button class="btn danger" id="syncDisconnect">Disconnect</button>
-      <button class="btn" id="syncPush">Push this device</button>
-      <button class="btn primary" id="syncPull">Save &amp; pull</button>
+      <button class="btn danger" id="syncDisconnect">Disconnect (keep local)</button>
+      <button class="btn" id="syncPull">⬇ Use GitHub copy</button>
+      <button class="btn primary" id="syncPush">⬆ Use this device copy</button>
     </div>
   </div>
 </div>

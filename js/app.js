@@ -1316,6 +1316,7 @@
     $("#syncPath").value = config.path || suggestedSyncPath();
     $("#syncToken").value = config.token || "";
     $("#syncRename").disabled = !!transferred || !gitSync.configured();
+    $("#syncDelete").disabled = !!transferred || !gitSync.configured();
     $("#syncRemote").innerHTML = '<option value="">Refresh to list songbooks…</option>';
     $("#syncLoad").disabled = true;
     if ($("#mobileMoreModal").classList.contains("open")) $("#mobileMoreClose").click();
@@ -1370,6 +1371,8 @@
   function closeSyncSettings() { stopSyncScan(); $("#syncModal").classList.remove("open"); }
   function configureSync() {
     gitSync.configure(syncForm());
+    $("#syncRename").disabled = false;
+    $("#syncDelete").disabled = false;
   }
   function refreshSyncFiles() {
     var select = $("#syncRemote"), button = $("#syncRefresh"), load = $("#syncLoad");
@@ -1410,16 +1413,24 @@
   $("#syncRemote").addEventListener("change", function () { $("#syncLoad").disabled = !this.value; });
   $("#syncLoad").addEventListener("click", function () {
     var path = $("#syncRemote").value; if (!path) return;
-    if (!confirm('Load "' + path + '" from GitHub?\n\nThe current local songbook remains available through Undo.')) return;
+    if (!confirm('Download "' + path + '" from GitHub and open it on this device?\n\nThis replaces the local songbook. The current local copy remains available through Undo.')) return;
     $("#syncPath").value = path;
-    try { configureSync(); gitSync.pull(true, false).then(closeSyncSettings).catch(function () {}); }
+    try { configureSync(); gitSync.pull(true, false).catch(function () {}); }
     catch (error) { syncStatus("error", error.message); }
   });
   $("#syncNew").addEventListener("click", function () {
-    var name = prompt("New songbook filename:", (STATE.meta && (STATE.meta.band || STATE.meta.subtitle)) || "my songbook");
+    var name = prompt("Name for the new GitHub songbook:", (STATE.meta && (STATE.meta.band || STATE.meta.subtitle)) || "my songbook");
     if (!name) return;
-    $("#syncPath").value = suggestedSyncPath(name);
-    $("#syncRemote").value = ""; $("#syncLoad").disabled = true;
+    var oldPath = $("#syncPath").value, newPath = suggestedSyncPath(name);
+    if (!confirm('Upload the songbook on this device as a new GitHub file?\n\n' + newPath + '\n\nExisting GitHub songbooks will not be changed.')) return;
+    var button = this, connected = false; button.disabled = true;
+    gitSync.listFiles(syncForm(newPath)).then(function (files) {
+      if (files.indexOf(newPath) >= 0) throw new Error('A GitHub songbook already exists at "' + newPath + '". Choose another name.');
+      $("#syncPath").value = newPath; configureSync(); connected = true; return gitSync.push(false);
+    }).then(refreshSyncFiles).catch(function (error) {
+      if (!connected) $("#syncPath").value = oldPath;
+      syncStatus("error", error.message);
+    }).finally(function () { button.disabled = false; });
   });
   $("#syncRename").addEventListener("click", function () {
     var config = gitSync && gitSync.config(); if (!config) return;
@@ -1433,14 +1444,22 @@
       return refreshSyncFiles();
     }).catch(function (error) { syncStatus("error", error.message); }).finally(function () { button.disabled = false; });
   });
+  $("#syncDelete").addEventListener("click", function () {
+    var config = gitSync && gitSync.config(); if (!config) return;
+    if (!confirm('Permanently delete "' + config.path + '" from GitHub?\n\nThe songbook stays on this device. Sync will disconnect so the deleted file is not recreated.')) return;
+    var button = this; button.disabled = true;
+    gitSync.remove().then(closeSyncSettings)
+      .catch(function (error) { syncStatus("error", error.message); })
+      .finally(function () { button.disabled = false; });
+  });
   $("#syncPull").addEventListener("click", function () {
-    if (!confirm("Save these settings and load the GitHub songbook if it exists?\n\nYour current version remains available through Undo.")) return;
-    try { configureSync(); gitSync.pull(true, true).then(closeSyncSettings).catch(function () {}); }
+    if (!confirm("Use the GitHub copy on this device?\n\nThis replaces the local songbook. Your current local copy remains available through Undo.")) return;
+    try { configureSync(); gitSync.pull(true, false).catch(function () {}); }
     catch (error) { syncStatus("error", error.message); }
   });
   $("#syncPush").addEventListener("click", function () {
-    if (!confirm("Push this device to GitHub?\n\nThis intentionally replaces the current cloud songbook.")) return;
-    try { configureSync(); gitSync.push(true).then(closeSyncSettings).catch(function () {}); }
+    if (!confirm("Use this device's copy on GitHub?\n\nThis replaces the connected GitHub songbook. The local songbook is unchanged.")) return;
+    try { configureSync(); gitSync.push(true).catch(function () {}); }
     catch (error) { syncStatus("error", error.message); }
   });
 

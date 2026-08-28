@@ -91,7 +91,7 @@
     }
     function fail(error) {
       var conflict = error && (error.status === 409 || error.status === 422);
-      status(conflict ? "conflict" : "error", conflict ? "Cloud changed — choose Pull or Push in sync settings" : error.message);
+      status(conflict ? "conflict" : "error", conflict ? "Both copies changed — choose which copy to use in Songbooks & sync" : error.message);
       throw error;
     }
     async function pull(force, createMissing) {
@@ -186,6 +186,21 @@
       } catch (error) { return fail(error); }
       finally { busy = false; }
     }
+    async function remove() {
+      if (!config) throw new Error("Connect a GitHub songbook first.");
+      if (busy) throw new Error("Wait for the current GitHub sync to finish, then delete again.");
+      busy = true; clearTimeout(timer); status("syncing", "Deleting GitHub songbook…");
+      try {
+        var path = config.path, file = await request("GET");
+        if (!file) throw new Error("The connected GitHub songbook no longer exists.");
+        await request("DELETE", {
+          message: "Delete Tiny Tab Maker songbook", sha: file.sha, branch: config.branch
+        });
+        config = null; writeConfig(null);
+        status("off", 'Deleted "' + path + '" from GitHub — this device keeps its local copy');
+      } catch (error) { return fail(error); }
+      finally { busy = false; }
+    }
     function configure(next) {
       next = {
         repo: (next.repo || "").trim(), branch: (next.branch || "main").trim(),
@@ -194,7 +209,7 @@
       validate(next);
       var same = config && config.repo === next.repo && config.branch === next.branch && config.path === next.path;
       config = Object.assign(next, { sha: same ? config.sha : null, dirty: same ? !!config.dirty : true });
-      save(); status("dirty", "Configured — choose Pull or Push");
+      save(); status("dirty", "Connected — choose which copy to use first");
     }
     function disconnect() { clearTimeout(timer); config = null; writeConfig(null); status("off", "Sync off"); }
     function start() {
@@ -208,7 +223,8 @@
     return {
       config: function () { return config ? Object.assign({}, config) : null; },
       configured: function () { return !!config; }, configure: configure, disconnect: disconnect,
-      changed: changed, syncNow: syncNow, pull: pull, push: push, listFiles: listFiles, rename: rename, start: start
+      changed: changed, syncNow: syncNow, pull: pull, push: push, listFiles: listFiles,
+      rename: rename, remove: remove, start: start
     };
   }
 

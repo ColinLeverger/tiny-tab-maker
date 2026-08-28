@@ -179,11 +179,11 @@ private GitHub repository using the Contents API:
 1. Create a **private** repository and initialize it with a README.
 2. Create a fine-grained personal access token limited to that repository,
    with **Repository permissions → Contents: Read and write** only.
-3. In the app open *Data → GitHub sync settings*, enter
+3. In the app open *Data → Songbooks & sync settings*, enter
    `owner/repository`, the branch (normally `main`), a distinct file such as
    `songbooks/my-band.json`, and the token.
-4. On the first device choose **Push this device**. Use **List** and **Load**
-   to select that songbook on each additional device.
+4. On the first device choose **Use this device copy**. On each additional
+   device, refresh the GitHub list and choose **Download & open**.
 
 On a laptop, the sync panel also shows a QR code. On iPhone, open the same panel
 and tap **Scan laptop QR**: the installed PWA uses the rear camera to prefill the
@@ -191,18 +191,18 @@ repository, branch and token, then lets you choose the songbook to load. Camera
 frames stay on-device. The QR itself is as sensitive as the token.
 
 One repository can contain any number of JSON songbooks. On laptops, the
-always-visible **Songbooks** button opens this library directly. **List** discovers
+always-visible **Songbooks** button opens this library directly. **Refresh list** discovers
 both older root files such as `songbook.json` and newer files under
-`songbooks/`. **Choose a new songbook filename** prepares a separate path;
-**Push this device** creates it without touching the other books. **Rename current
-GitHub songbook** safely changes the current remote filename without overwriting
-another songbook.
+`songbooks/`. **Upload this device as a new GitHub songbook** creates a separate
+file without touching the other books. Connected songbooks can be renamed or
+permanently deleted from GitHub; deletion keeps the local copy and disconnects
+sync so the file is not recreated.
 
 Local edits save immediately and sync after 30 seconds of inactivity. The app
-also checks GitHub on startup, focus, reconnect, or *Data → Sync now*. GitHub's
+also checks GitHub on startup, focus, reconnect, or *Data → Check & sync now*. GitHub's
 file SHA prevents silent overwrites: when two devices edit independently the
-badge shows **Conflict**, and sync settings let you explicitly Pull the cloud
-copy or Push this device. Pull is added to Undo history.
+badge shows **Conflict**, and sync settings let you explicitly choose **Use GitHub
+copy** or **Use this device copy**. Downloading is added to Undo history.
 
 The token stays in that browser's `localStorage`; it cannot be hidden by a
 static Pages app, so keep its access limited to the one private data repository.

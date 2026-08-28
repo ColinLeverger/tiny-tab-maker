@@ -62,5 +62,17 @@ require("../js/github-sync.js");
   };
   await assert.rejects(sync.rename("songbooks/existing.json"), /already exists/);
   assert.deepStrictEqual(existingCalls, ["GET", "GET"]);
+
+  const deleteCalls = [];
+  global.fetch = async function (_url, options) {
+    deleteCalls.push({ method: options.method, body: options.body && JSON.parse(options.body) });
+    if (options.method === "GET") return { status: 200, ok: true, json: async () => ({ sha: "delete-sha" }) };
+    return { status: 200, ok: true, json: async () => ({}) };
+  };
+  await sync.remove();
+  assert.deepStrictEqual(deleteCalls.map(call => call.method), ["GET", "DELETE"]);
+  assert.strictEqual(deleteCalls[1].body.sha, "delete-sha");
+  assert.strictEqual(sync.configured(), false);
+  await assert.rejects(sync.remove(), /Connect a GitHub songbook first/);
   console.log("github-sync: ok");
 })().catch(error => { console.error(error); process.exitCode = 1; });
